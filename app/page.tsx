@@ -6,10 +6,10 @@ import { Card, CardContent } from '@/src/components/ui/Card'
 import { LayoutGrid, Swords, Trophy } from 'lucide-react'
 
 const PREVIEW_UNITS = [
-  { src: '/assets/units/blue/warrior/idle.png', name: 'Warrior' },
-  { src: '/assets/units/blue/archer/idle.png', name: 'Archer' },
-  { src: '/assets/units/blue/lancer/idle.png', name: 'Lancer' },
-  { src: '/assets/units/blue/pawn/idle.png', name: 'Pawn' },
+  { src: '/assets/ui/avatars/avatar-01.png', name: 'Warrior' },
+  { src: '/assets/ui/avatars/avatar-02.png', name: 'Archer' },
+  { src: '/assets/ui/avatars/avatar-03.png', name: 'Lancer' },
+  { src: '/assets/ui/avatars/avatar-04.png', name: 'Pawn' },
 ]
 
 export default function Home() {
