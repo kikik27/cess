@@ -1,21 +1,19 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { Badge } from '@/src/components/ui/Badge'
 import { Button } from '@/src/components/ui/Button'
 import { Swords, Shield, Trophy } from 'lucide-react'
+import LandingMusicLoader from '@/src/ui/LandingMusicLoader'
 
-const FX_PARTICLES = [
-  { src: '/assets/ui/icons/icon-01.png', cls: 'particle p1' },
-  { src: '/assets/ui/icons/icon-02.png', cls: 'particle p2' },
-  { src: '/assets/ui/icons/icon-04.png', cls: 'particle p3' },
-  { src: '/assets/ui/icons/icon-05.png', cls: 'particle p4' },
-  { src: '/assets/ui/icons/icon-06.png', cls: 'particle p5' },
-  { src: '/assets/ui/icons/icon-07.png', cls: 'particle p6' },
-  { src: '/assets/ui/icons/icon-08.png', cls: 'particle p7' },
-  { src: '/assets/ui/icons/icon-09.png', cls: 'particle p8' },
-  { src: '/assets/ui/icons/icon-10.png', cls: 'particle p9' },
-  { src: '/assets/ui/icons/icon-11.png', cls: 'particle p10' },
-  { src: '/assets/ui/icons/icon-12.png', cls: 'particle p11' },
+// ── Leaves: tumble and fall across the bottom half ────────────────────────────
+const LEAVES = [
+  { src: '/assets/fx/leaf/1.png', cls: 'leaf l1', w: 22 },
+  { src: '/assets/fx/leaf/3.png', cls: 'leaf l2', w: 18 },
+  { src: '/assets/fx/leaf/5.png', cls: 'leaf l3', w: 24 },
+  { src: '/assets/fx/leaf/2.png', cls: 'leaf l4', w: 20 },
+  { src: '/assets/fx/leaf/4.png', cls: 'leaf l5', w: 16 },
+  { src: '/assets/fx/leaf/6.png', cls: 'leaf l6', w: 22 },
+  { src: '/assets/fx/leaf/1.png', cls: 'leaf l7', w: 18 },
+  { src: '/assets/fx/leaf/3.png', cls: 'leaf l8', w: 20 },
 ]
 
 const FEATURES = [
@@ -28,34 +26,46 @@ export default function Home() {
   return (
     <div className="landing-bg game-scroll app-frame-outer mobile-shell relative overflow-hidden flex flex-col">
 
-      {/* Overlay */}
+      {/* ── Black curtain — covers everything, fades out first ── */}
+      <div className="curtain" aria-hidden />
+
+      {/* ── Vignette overlay ── */}
       <div className="landing-overlay" aria-hidden />
 
-      {/* Particles */}
-      {FX_PARTICLES.map((p, i) => (
-        <Image key={i} src={p.src} alt="" width={18} height={18} className={p.cls} aria-hidden />
+      {/* ── Leaves — ambient, always running ── */}
+      {LEAVES.map((l, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <div key={`leaf-${i}`} className={l.cls} aria-hidden>
+          <img src={l.src} alt="" style={{ width: l.w, height: 'auto' }} />
+        </div>
       ))}
 
-      {/* ── Hero ── */}
+      {/* ── Subtitle — fades up after logo lands ── */}
       <section className="relative z-10 flex flex-col items-center gap-2 px-4 pt-10 pb-4">
-        <p className="font-display text-[10px] uppercase tracking-[0.32em] text-[rgba(245,216,120,0.7)]">
+        <p className="intro-subtitle font-display text-[10px] uppercase tracking-[0.32em] text-[rgba(245,216,120,0.7)]">
           Dark Fantasy Auto Battler
         </p>
-        <Image
+
+        {/* ── Logo — slams down with impact glow ── */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src="/logo.png"
           alt="CETAS"
-          width={420} height={420}
-          className="object-contain drop-shadow-[0_0_40px_rgba(200,146,42,0.4)]"
-          priority
+          className="intro-logo object-contain"
+          style={{ width: 420, height: 'auto' }}
         />
+
+        {/* ── Gold flash burst on logo impact ── */}
+        <div className="intro-burst" aria-hidden />
       </section>
 
-      {/* ── Feature pills ── */}
+      {/* ── Feature pills — stagger in after logo ── */}
       <section className="relative z-10 flex justify-center gap-2 px-4 pb-4">
         {FEATURES.map((f, i) => (
           <Badge
             key={i}
-            className="flex items-center gap-1 border-[rgba(200,146,42,0.3)] bg-[rgba(200,146,42,0.08)] text-[var(--gold-mid)]"
+            className="intro-pill flex items-center gap-1 border-[rgba(200,146,42,0.3)] bg-[rgba(200,146,42,0.08)] text-[var(--gold-mid)]"
+            style={{ animationDelay: `${1.5 + i * 0.15}s` }}
           >
             {f.icon}
             {f.label}
@@ -63,8 +73,8 @@ export default function Home() {
         ))}
       </section>
 
-      {/* ── CTA ── */}
-      <section className="relative z-10 flex flex-col gap-3 px-4 pb-6">
+      {/* ── CTA — rises last ── */}
+      <section className="intro-cta relative z-10 flex flex-col gap-3 px-4 pb-6">
         <Link href="/game">
           <Button variant="pixelGold" size="lg" className="w-full text-[15px] font-black tracking-widest anim-glow">
             <Swords className="h-5 w-5" />
@@ -76,6 +86,9 @@ export default function Home() {
           Celo Tactics · Mini App Edition
         </p>
       </section>
+
+      {/* ── Background music toggle ── */}
+      <LandingMusicLoader />
     </div>
   )
 }
