@@ -6,34 +6,42 @@ import { Card, CardContent } from '@/src/components/ui/Card'
 import { LayoutGrid, Swords, Trophy } from 'lucide-react'
 
 const PREVIEW_UNITS = [
-  { src: '/assets/ui/avatars/avatar-01.png', name: 'Warrior' },
-  { src: '/assets/ui/avatars/avatar-02.png', name: 'Archer' },
-  { src: '/assets/ui/avatars/avatar-03.png', name: 'Lancer' },
-  { src: '/assets/ui/avatars/avatar-04.png', name: 'Pawn' },
-  { src: '/assets/ui/avatars/avatar-05.png', name: 'Warrior' },
-  { src: '/assets/ui/avatars/avatar-06.png', name: 'Archer' },
-  { src: '/assets/ui/avatars/avatar-07.png', name: 'Lancer' },
-  { src: '/assets/ui/avatars/avatar-08.png', name: 'Pawn' },
-  { src: '/assets/ui/avatars/avatar-09.png', name: 'Warrior' },
-  { src: '/assets/ui/avatars/avatar-10.png', name: 'Archer' },
+  { src: '/assets/ui/avatars/avatar-1.png', name: 'Warrior' },
+  { src: '/assets/ui/avatars/avatar-2.png', name: 'Archer' },
+  { src: '/assets/ui/avatars/avatar-3.png', name: 'Lancer' },
+  { src: '/assets/ui/avatars/avatar-4.png', name: 'Pawn' },
+]
+
+const FX_PARTICLES = [
+  { src: '/assets/ui/icons/icon-01.png', cls: 'particle p1' },
+  { src: '/assets/ui/icons/icon-02.png', cls: 'particle p2' },
+  { src: '/assets/ui/icons/icon-04.png', cls: 'particle p3' },
+  { src: '/assets/ui/icons/icon-05.png', cls: 'particle p4' },
+  { src: '/assets/ui/icons/icon-06.png', cls: 'particle p5' },
 ]
 
 export default function Home() {
   return (
-    <div className="game-bg game-scroll app-frame-outer">
-      <div className="mobile-shell">
+    <div className="landing-bg game-scroll app-frame-outer">
+      <div className="mobile-shell relative overflow-hidden">
+        <div className="landing-overlay" />
+
+        {FX_PARTICLES.map((p, i) => (
+          <Image key={i} src={p.src} alt="" width={18} height={18} className={p.cls} aria-hidden />
+        ))}
+
         {/* ── Hero ─────────────────────────────────────── */}
-        <section className="flex flex-col items-center gap-3 px-4 pt-8 pb-5">
-          <div className="relic-frame relative h-24 w-24 overflow-hidden rounded-2xl p-1 anim-glow">
+        <section className="relative z-10 flex flex-col items-center gap-3 px-4 pt-9 pb-5">
+          <div className="relic-frame logo-drop relative h-24 w-24 overflow-hidden rounded-2xl p-1">
             <Image src="/logo.png" alt="CETAS" fill className="object-contain p-1" priority />
           </div>
 
           <div className="text-center">
-            <p className="font-display text-[10px] uppercase tracking-[0.28em] text-[var(--text-2)]">Dark Fantasy Auto Battler</p>
-            <h1 className="font-heading mt-1 text-[34px] font-semibold leading-[0.95] tracking-wide text-[var(--gold)]">
+            <p className="font-display text-[10px] uppercase tracking-[0.28em] text-[#f2ebdb]">Dark Fantasy Auto Battler</p>
+            <h1 className="font-heading mt-1 text-[34px] font-semibold leading-[0.95] tracking-wide text-[#ffe09c] text-shadow-gold">
               CETAS
             </h1>
-            <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-2)]">
+            <p className="mt-1 text-[12px] leading-relaxed text-[#f0e8d8]">
               Build squad. Fight realm. Earn glory.
             </p>
           </div>
@@ -45,10 +53,10 @@ export default function Home() {
         </section>
 
         {/* ── Preview card ─────────────────────────────── */}
-        <section className="px-4">
-          <Card className="overflow-hidden">
+        <section className="relative z-10 px-4">
+          <Card className="relic-frame overflow-hidden">
             <CardContent className="p-0">
-              <div className="grid grid-cols-5 gap-0">
+              <div className="grid grid-cols-4 gap-0">
                 {PREVIEW_UNITS.map((unit) => (
                   <div key={unit.name} className="relative aspect-square border-r border-[var(--border)] last:border-r-0">
                     <Image src={unit.src} alt={unit.name} fill className="object-contain p-2" />
@@ -60,7 +68,7 @@ export default function Home() {
         </section>
 
         {/* ── CTA ──────────────────────────────────────── */}
-        <section className="flex flex-col gap-3 px-4 pt-4 pb-10">
+        <section className="relative z-10 flex flex-col gap-3 px-4 pt-4 pb-10">
           <Link href="/game">
             <Button variant="gold" size="lg" className="w-full anim-glow">
               <Swords className="h-4 w-4" /> MULAI BERMAIN
@@ -70,7 +78,7 @@ export default function Home() {
             <Button variant="ghost" size="sm" disabled><Trophy className="h-3 w-3" /> Leaderboard</Button>
             <Button variant="ghost" size="sm" disabled><LayoutGrid className="h-3 w-3" /> Koleksi</Button>
           </div>
-          <p className="text-center text-[11px] text-[var(--text-3)]">
+          <p className="text-center text-[11px] text-[#efe6d2]">
             Celo Tactics — Mini App Edition
           </p>
         </section>
