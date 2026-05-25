@@ -14,53 +14,47 @@ const LEAVES = [
 
 export default function RootPage() {
   return (
-    <div className="landing-bg game-scroll app-frame-outer mobile-shell relative overflow-hidden flex flex-col">
+    <div className="app-frame-outer">
+      <div className="mobile-shell landing-bg relative flex flex-col overflow-hidden">
 
-      {/* ── Black curtain — covers everything, fades out first ── */}
-      <div className="curtain" aria-hidden />
+        <div className="curtain" aria-hidden />
+        <div className="landing-overlay" aria-hidden />
 
-      {/* ── Vignette overlay ── */}
-      <div className="landing-overlay" aria-hidden />
+        {LEAVES.map((l, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <div key={`leaf-${i}`} className={l.cls} aria-hidden>
+            <img src={l.src} alt="" style={{ width: l.w, height: 'auto' }} />
+          </div>
+        ))}
 
-      {/* ── Leaves — ambient, always running ── */}
-      {LEAVES.map((l, i) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <div key={`leaf-${i}`} className={l.cls} aria-hidden>
-          <img src={l.src} alt="" style={{ width: l.w, height: 'auto' }} />
-        </div>
-      ))}
+        {/* ── Center block: subtitle + logo + button ── */}
+        <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
+          <div className="flex flex-col items-center gap-2">
+            <p className="intro-subtitle font-display text-[10px] uppercase tracking-[0.32em] text-[rgba(245,216,120,0.7)]">
+              Dark Fantasy Auto Battler
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="CETAS"
+              className="intro-logo w-full max-w-[300px] object-contain"
+            />
+            <div className="intro-burst" aria-hidden />
+          </div>
 
-      {/* ── Subtitle + Logo ── */}
-      <section className="relative z-10 flex flex-col items-center gap-2 px-4 pt-10 pb-4">
-        <p className="intro-subtitle font-display text-[10px] uppercase tracking-[0.32em] text-[rgba(245,216,120,0.7)]">
-          Dark Fantasy Auto Battler
-        </p>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo.png"
-          alt="CETAS"
-          className="intro-logo object-contain"
-          style={{ width: 420, height: 'auto' }}
-        />
-        <div className="intro-burst" aria-hidden />
-      </section>
+          {/* Button sits right below the logo */}
+          <div className="w-full max-w-[280px]">
+            <LandingGate />
+          </div>
+        </section>
 
-      {/* ── CTA ── */}
-      <section className="intro-cta relative z-10 flex flex-col gap-3 px-4 pb-6">
-        {/*
-          LandingGate renders the PLAY NOW button.
-          - First-time user → opens onboarding dialog (name + avatar) → /home
-          - Returning user  → navigates directly to /home
-        */}
-        <LandingGate />
-
-        <p className="text-center font-display text-[10px] uppercase tracking-[0.2em] text-[rgba(245,216,120,0.5)]">
+        {/* ── Bottom tagline only ── */}
+        <p className="intro-cta relative z-10 pb-8 text-center font-display text-[10px] uppercase tracking-[0.2em] text-[rgba(245,216,120,0.4)]">
           Celo Tactics · Mini App Edition
         </p>
-      </section>
 
-      {/* ── Music prompt (client-only) ── */}
-      <LandingClient />
+        <LandingClient />
+      </div>
     </div>
   )
 }

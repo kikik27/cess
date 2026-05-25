@@ -14,50 +14,53 @@ const LEAVES = [
   { src: '/assets/fx/leaf/3.png', cls: 'leaf l8', w: 20 },
 ]
 
-/**
- * /welcome — cinematic landing page.
- * Shown to first-time users via redirect from /, or accessible directly for demo.
- */
 export default function WelcomePage() {
   return (
-    <div className="landing-bg game-scroll app-frame-outer mobile-shell relative overflow-hidden flex flex-col">
-      <div className="curtain" aria-hidden />
-      <div className="landing-overlay" aria-hidden />
+    <div className="app-frame-outer">
+      <div className="mobile-shell landing-bg relative flex flex-col overflow-hidden">
 
-      {LEAVES.map((l, i) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <div key={`leaf-${i}`} className={l.cls} aria-hidden>
-          <img src={l.src} alt="" style={{ width: l.w, height: 'auto' }} />
-        </div>
-      ))}
+        <div className="curtain" aria-hidden />
+        <div className="landing-overlay" aria-hidden />
 
-      <section className="relative z-10 flex flex-col items-center gap-2 px-4 pt-10 pb-4">
-        <p className="intro-subtitle font-display text-[10px] uppercase tracking-[0.32em] text-[rgba(245,216,120,0.7)]">
-          Dark Fantasy Auto Battler
-        </p>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo.png"
-          alt="CETAS"
-          className="intro-logo object-contain"
-          style={{ width: 420, height: 'auto' }}
-        />
-        <div className="intro-burst" aria-hidden />
-      </section>
+        {LEAVES.map((l, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <div key={`leaf-${i}`} className={l.cls} aria-hidden>
+            <img src={l.src} alt="" style={{ width: l.w, height: 'auto' }} />
+          </div>
+        ))}
 
-      <section className="intro-cta relative z-10 flex flex-col gap-3 px-4 pb-6">
-        <Link href="/">
-          <Button variant="pixelGold" size="lg" className="w-full font-black tracking-wider">
-            <Swords className="h-5 w-5" />
-            ENTER
-          </Button>
-        </Link>
-        <p className="text-center font-display text-[10px] uppercase tracking-[0.2em] text-[rgba(245,216,120,0.5)]">
+        {/* Center block: subtitle + logo + button */}
+        <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
+          <div className="flex flex-col items-center gap-2">
+            <p className="intro-subtitle font-display text-[10px] uppercase tracking-[0.32em] text-[rgba(245,216,120,0.7)]">
+              Dark Fantasy Auto Battler
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="CETAS"
+              className="intro-logo w-full max-w-[300px] object-contain"
+            />
+            <div className="intro-burst" aria-hidden />
+          </div>
+
+          <div className="w-full max-w-[280px]">
+            <Link href="/">
+              <Button variant="pixelGold" size="lg" className="w-full font-black tracking-wider">
+                <Swords className="h-5 w-5" />
+                ENTER
+              </Button>
+            </Link>
+          </div>
+        </section>
+
+        {/* Bottom tagline only */}
+        <p className="intro-cta relative z-10 pb-8 text-center font-display text-[10px] uppercase tracking-[0.2em] text-[rgba(245,216,120,0.4)]">
           Celo Tactics · Mini App Edition
         </p>
-      </section>
 
-      <LandingClient />
+        <LandingClient />
+      </div>
     </div>
   )
 }
