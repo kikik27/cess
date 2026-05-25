@@ -1,9 +1,6 @@
-import Link from 'next/link'
-import { Button } from '@/src/components/ui/Button'
-import { Swords } from 'lucide-react'
 import LandingClient from '@/src/ui/LandingClient'
+import LandingGate from '@/src/ui/LandingGate'
 
-// ── Leaves: tumble and fall across the bottom half ────────────────────────────
 const LEAVES = [
   { src: '/assets/fx/leaf/1.png', cls: 'leaf l1', w: 22 },
   { src: '/assets/fx/leaf/3.png', cls: 'leaf l2', w: 18 },
@@ -15,59 +12,49 @@ const LEAVES = [
   { src: '/assets/fx/leaf/3.png', cls: 'leaf l8', w: 20 },
 ]
 
-export default function Home() {
+export default function RootPage() {
   return (
-    <div className="landing-bg game-scroll app-frame-outer mobile-shell relative overflow-hidden flex flex-col">
+    <div className="app-frame-outer">
+      <div className="mobile-shell landing-bg relative flex flex-col overflow-hidden">
 
-      {/* ── Black curtain — covers everything, fades out first ── */}
-      <div className="curtain" aria-hidden />
+        <div className="curtain" aria-hidden />
+        <div className="landing-overlay" aria-hidden />
 
-      {/* ── Vignette overlay ── */}
-      <div className="landing-overlay" aria-hidden />
+        {LEAVES.map((l, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <div key={`leaf-${i}`} className={l.cls} aria-hidden>
+            <img src={l.src} alt="" style={{ width: l.w, height: 'auto' }} />
+          </div>
+        ))}
 
-      {/* ── Leaves — ambient, always running ── */}
-      {LEAVES.map((l, i) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <div key={`leaf-${i}`} className={l.cls} aria-hidden>
-          <img src={l.src} alt="" style={{ width: l.w, height: 'auto' }} />
-        </div>
-      ))}
+        {/* ── Center block: subtitle + logo + button ── */}
+        <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
+          <div className="flex flex-col items-center gap-2">
+            <p className="intro-subtitle font-display text-[10px] uppercase tracking-[0.32em] text-[rgba(125,212,248,0.7)]">
+              Tactical Auto Battler · Celo L2
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="CETAS"
+              className="intro-logo w-full max-w-[300px] object-contain"
+            />
+            <div className="intro-burst" aria-hidden />
+          </div>
 
-      {/* ── Subtitle — fades up after logo lands ── */}
-      <section className="relative z-10 flex flex-col items-center gap-2 px-4 pt-10 pb-4">
-        <p className="intro-subtitle font-display text-[10px] uppercase tracking-[0.32em] text-[rgba(245,216,120,0.7)]">
-          Dark Fantasy Auto Battler
+          {/* Button sits right below the logo */}
+          <div className="w-full max-w-[280px]">
+            <LandingGate />
+          </div>
+        </section>
+
+        {/* ── Bottom tagline only ── */}
+        <p className="intro-cta relative z-10 pb-8 text-center font-display text-[10px] uppercase tracking-[0.2em] text-[rgba(245,216,120,0.4)]">
+          Celo Tactics · Mini App Edition
         </p>
 
-        {/* ── Logo — slams down with impact glow ── */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo.png"
-          alt="CETAS"
-          className="intro-logo object-contain"
-          style={{ width: 420, height: 'auto' }}
-        />
-
-        {/* ── Gold flash burst on logo impact ── */}
-        <div className="intro-burst" aria-hidden />
-      </section>
-
-      {/* ── CTA — rises last ── */}
-      <section className="intro-cta relative z-10 flex flex-col gap-3 px-4 pb-6">
-        <Link href="/game">
-          <Button variant="pixelGold" size="lg" className="w-full font-black tracking-wider">
-            <Swords className="h-5 w-5" />
-            PLAY NOW
-          </Button>
-        </Link>
-
-        <p className="text-center font-display text-[10px] uppercase tracking-[0.2em] text-[rgba(245,216,120,0.5)]">
-        Celo Tactics · Mini App Edition
-        </p>
-      </section>
-
-      {/* ── Splash + music (client-only) ── */}
-      <LandingClient />
+        <LandingClient />
+      </div>
     </div>
   )
 }

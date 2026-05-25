@@ -64,8 +64,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { phase, selected, board, bench, maxBoardSlots } = get()
     if (phase !== 'prep') return
 
-    const isEnemyZone = row < 3
-    if (isEnemyZone) {
+    const isEnemyZone   = row < 4
+    const isBuildingRow = row === 0 || row === 7
+    if (isEnemyZone || isBuildingRow) {
       set({ selected: null })
       return
     }
@@ -130,13 +131,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   reroll() {
     const { gold } = get()
     if (gold < 2) {
-      set(s => ({ log: addLog(s.log, '🪙 Need 2 gold to reroll!') }))
+      set(s => ({ log: addLog(s.log, 'Need 2 gold to reroll!') }))
       return
     }
     set(s => ({
       gold: s.gold - 2,
       shop: generateShop(),
-      log: addLog(s.log, '🎲 Shop refreshed!'),
+      log: addLog(s.log, 'Shop refreshed!'),
     }))
   },
 
@@ -166,7 +167,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       bench: bch,
       gold: Math.min(s.gold + earn, 20),
       selected: null,
-      log: addLog(s.log, `💰 Sold ${unit!.name} +🪙${earn}`),
+      log: addLog(s.log, `Sold ${unit!.name} +${earn}g`),
     }))
   },
 
@@ -174,7 +175,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { phase, board, maxBoardSlots, round } = get()
     if (phase !== 'prep') return
     if (getBoardUnitCount(board) === 0) {
-      set(s => ({ log: addLog(s.log, '⚠️ Place at least 1 unit first!') }))
+      set(s => ({ log: addLog(s.log, 'Place at least 1 unit first!') }))
       return
     }
 
@@ -187,7 +188,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       battleTimeMs: 0,
       speedUp: false,
       projectiles: [],
-      log: addLog(s.log, '⚔️ Battle begins!'),
+      log: addLog(s.log, 'Battle begins!'),
     }))
   },
 
@@ -201,7 +202,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const nowSpeedUp = newTimeMs >= BATTLE_LIMIT_MS
 
     if (!wasSpeedUp && nowSpeedUp) {
-      set(s => ({ speedUp: true, battleTimeMs: newTimeMs, log: addLog(s.log, '⚡ Time\'s up! Speed 3×!') }))
+      set(s => ({ speedUp: true, battleTimeMs: newTimeMs, log: addLog(s.log, 'Time\'s up! Speed 3x!') }))
     } else {
       set({ battleTimeMs: newTimeMs, speedUp: nowSpeedUp })
     }
@@ -232,8 +233,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   endBattle() {
     const { board, round, maxBoardSlots, hp, gold } = get()
     const result = evaluateBattleEnd(board, round)
-    // Slot +1 always (win or lose) — capped at 7
-    const newSlots = Math.min(maxBoardSlots + 1, 7)
+    // Slot +1 always (win or lose) — capped at 12
+    const newSlots = Math.min(maxBoardSlots + 1, 12)
 
     if (result.win) {
       const newGold = Math.min(gold + result.goldEarned, 20)
@@ -241,7 +242,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         gold: newGold,
         maxBoardSlots: newSlots,
         battleRunning: false,
-        log: addLog(s.log, `🏆 Round ${round} VICTORY! +🪙${result.goldEarned}, slots up to ${newSlots}`),
+        log: addLog(s.log, `Round ${round} VICTORY! +${result.goldEarned}g, slots up to ${newSlots}`),
       }))
     } else {
       const newHp = Math.max(0, hp - result.hpLost)
@@ -249,7 +250,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         hp: newHp,
         maxBoardSlots: newSlots,
         battleRunning: false,
-        log: addLog(s.log, `😤 Round ${round} DEFEAT! −${result.hpLost} HP, slots up to ${newSlots}`),
+        log: addLog(s.log, `Round ${round} DEFEAT! -${result.hpLost} HP, slots up to ${newSlots}`),
       }))
     }
   },
@@ -266,7 +267,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // surviving ones heal 25% of max HP.
     const newBoard = board.map((row, r) =>
       row.map((cell) => {
-        if (r < 3) return null          // clear enemy zone (rows 0–2)
+        if (r < 4) return null          // clear enemy zone (rows 0–3)
         if (!cell) return null
         if (cell.enemy) return null
 
@@ -328,7 +329,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       speedUp: false,
       projectiles: [],
       enemyPreview: newEnemyPreview,
-      log: addLog(s.log, `📋 Round ${nextRound}. +5🪙 Fallen units restored. Slots: ${maxBoardSlots}`),
+      log: addLog(s.log, `Round ${nextRound}. +5g Fallen units restored. Slots: ${maxBoardSlots}`),
     }))
   },
 

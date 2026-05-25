@@ -26,7 +26,7 @@ export default function Bench({ bench, selected, onSlotClick }: BenchProps) {
                 key={i}
                 className={cn(
                   'h-1.5 w-1.5 rounded-full transition-colors',
-                  u ? 'bg-[var(--ally)]' : 'bg-[rgba(255,255,255,0.1)]'
+                  u ? 'bg-[var(--ally)]' : 'bg-[rgba(11,78,162,0.4)]'
                 )}
               />
             ))}
@@ -71,15 +71,15 @@ function BenchSlot({
   return (
     <button
       onClick={onClick}
-      title={unit ? `${unit.name} ⭐${unit.stars} | ATK:${unit.atkVal} HP:${unit.curHp}` : 'Empty'}
+      title={unit ? `${unit.name} ${unit.stars}* | ATK:${unit.atkVal} HP:${unit.curHp}` : 'Empty'}
       className={cn(
         'flex flex-shrink-0 h-[72px] w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-150',
         !unit && [
-          'border border-dashed border-[rgba(200,146,42,0.15)] bg-[rgba(255,255,255,0.02)]',
+          'border border-dashed border-[var(--border-gold)] bg-[rgba(4,16,33,0.4)]',
           'hover:border-[rgba(200,146,42,0.3)] hover:bg-[rgba(200,146,42,0.04)]',
         ],
         unit && !isSelected && [
-          'border border-[rgba(74,158,255,0.25)] bg-[rgba(74,158,255,0.04)]',
+          'border border-[rgba(74,158,255,0.3)] bg-[rgba(4,16,33,0.6)]',
           'hover:border-[rgba(74,158,255,0.45)] hover:bg-[rgba(74,158,255,0.08)]',
         ],
         unit && isSelected && [

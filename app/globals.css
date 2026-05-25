@@ -6,25 +6,25 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --bg:            #0d0a0f;
-  --bg-deep:       #080610;
-  --bg-panel:      rgba(18, 13, 28, 0.96);
-  --bg-card:       rgba(22, 16, 36, 0.94);
-  --bg-overlay:    rgba(4, 2, 10, 0.82);
+  --bg:            #06172d;
+  --bg-deep:       #041021;
+  --bg-panel:      rgba(8, 42, 90, 0.90);
+  --bg-card:       rgba(10, 35, 64, 0.92);
+  --bg-overlay:    rgba(4, 23, 45, 0.78);
 
-  --text:          #e8dfc8;
-  --text-1:        #f0e8d0;
-  --text-2:        #b8a882;
-  --text-3:        #7a6a4e;
-  --text-dim:      #4a3e2e;
+  --text:          #e8f4ff;
+  --text-1:        #f5fbff;
+  --text-2:        #a8d7f5;
+  --text-3:        #7db7df;
+  --text-dim:      #4f84aa;
 
-  --gold:          #c8922a;
-  --gold-hi:       #f5d878;
-  --gold-mid:      #e0b040;
-  --gold-lo:       #7a5518;
-  --gold-dim:      #4a3510;
-  --gold-glow:     rgba(220, 170, 50, 0.5);
-  --gold-glow-sm:  rgba(220, 170, 50, 0.25);
+  --gold:          #e4c87a;
+  --gold-hi:       #fffcc8;
+  --gold-mid:      #fecf3a;
+  --gold-lo:       #e7851a;
+  --gold-dim:      #ad5214;
+  --gold-glow:     rgba(25, 215, 255, 0.28);
+  --gold-glow-sm:  rgba(228, 200, 122, 0.20);
 
   --ally:          #4a9eff;
   --ally-dim:      rgba(74, 158, 255, 0.15);
@@ -37,10 +37,10 @@
   --purple:        #9b6dff;
   --purple-dim:    rgba(155, 109, 255, 0.15);
 
-  --border:        rgba(180, 140, 60, 0.18);
-  --border-gold:   rgba(200, 146, 42, 0.45);
-  --border-bright: rgba(245, 216, 120, 0.6);
-  --border-dark:   rgba(255, 255, 255, 0.06);
+  --border:        rgba(11, 78, 162, 0.32);
+  --border-gold:   rgba(228, 200, 122, 0.45);
+  --border-bright: rgba(25, 215, 255, 0.5);
+  --border-dark:   rgba(255, 255, 255, 0.08);
 
   --prep-bg:       rgba(74, 158, 255, 0.12);
   --prep-text:     #82c4ff;
@@ -86,15 +86,20 @@ body {
 /* ═══════════════════════════════════════════════════════════════
    LAYOUT
    ═══════════════════════════════════════════════════════════════ */
+
+/* Full-screen centering wrapper — transparent, no background */
 .app-frame-outer {
   min-height: 100dvh;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
+  background: var(--bg); /* fallback color outside the 430px column */
 }
+
+/* Mobile-width column — backgrounds go here so they stay portrait-shaped */
 .mobile-shell {
   width: 100%;
   max-width: 430px;
-  margin: 0 auto;
   min-height: 100dvh;
   position: relative;
   display: flex;
@@ -134,15 +139,9 @@ body {
     radial-gradient(ellipse 60% 40% at 80% 100%, rgba(180, 40, 40, 0.06) 0%, transparent 60%),
     linear-gradient(180deg, #0e0b18 0%, #0a0814 50%, #0d0a16 100%);
 }
-.game-scroll {
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(200, 146, 42, 0.3) transparent;
-}
 .game-shell {
   width: 100%;
-  max-width: 860px;
+  max-width: 500px;
   margin: 0 auto;
   min-height: 100dvh;
   display: flex;
@@ -152,27 +151,73 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SURFACES
+   SCROLL — custom scrollbar (RPG gold, thin, both axes)
    ═══════════════════════════════════════════════════════════════ */
+
+/* Vertical scroll — used by .game-scroll (hub pages, game page) */
+.game-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 146, 42, 0.35) transparent;
+}
+.game-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+.game-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.game-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--gold-lo), var(--gold-mid), var(--gold-lo));
+  border-radius: 999px;
+}
+.game-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--gold-mid), var(--gold-hi), var(--gold-mid));
+}
+
+/* Horizontal scroll — used by .scroll-x (shop row, bench, etc.) */
+.scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 146, 42, 0.35) transparent;
+}
+.scroll-x::-webkit-scrollbar {
+  height: 3px;
+}
+.scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-x::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, var(--gold-lo), var(--gold-mid), var(--gold-lo));
+  border-radius: 999px;
+}
+.scroll-x::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, var(--gold-mid), var(--gold-hi), var(--gold-mid));
+}
 .surface {
-  background: linear-gradient(160deg, rgba(28,20,44,0.92) 0%, rgba(18,13,30,0.96) 100%);
+  background: linear-gradient(160deg, rgba(8,28,58,0.94) 0%, rgba(4,16,33,0.97) 100%);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: inset 0 1px 0 rgba(255,220,100,0.06), 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: inset 0 1px 0 rgba(255,220,100,0.05), 0 4px 20px rgba(0,0,0,0.5);
 }
 .relic-frame {
   position: relative;
   background:
-    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(200,146,42,0.08) 0%, transparent 55%),
-    linear-gradient(160deg, rgba(26,18,42,0.97) 0%, rgba(16,11,28,0.99) 100%);
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(200,146,42,0.07) 0%, transparent 55%),
+    linear-gradient(160deg, rgba(8,28,58,0.96) 0%, rgba(4,16,33,0.98) 100%);
   border: 1px solid var(--border-gold);
   border-radius: 14px;
   box-shadow:
-    inset 0 1px 0 rgba(245,216,120,0.12),
+    inset 0 1px 0 rgba(245,216,120,0.1),
     inset 0 -1px 0 rgba(0,0,0,0.4),
-    0 0 0 1px rgba(0,0,0,0.6),
-    0 8px 32px rgba(0,0,0,0.6),
-    0 0 24px rgba(200,146,42,0.06);
+    0 0 0 1px rgba(0,0,0,0.5),
+    0 8px 32px rgba(0,0,0,0.5),
+    0 0 24px rgba(200,146,42,0.05);
 }
 .relic-frame::before {
   content: '';
@@ -185,7 +230,7 @@ body {
 }
 .board-frame {
   position: relative;
-  background: #060410;
+  background: #020c1a;
   border: 2px solid var(--border-gold);
   border-radius: 12px;
   overflow: hidden;
@@ -218,28 +263,12 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SCROLL
-   ═══════════════════════════════════════════════════════════════ */
-.scroll-x {
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(200,146,42,0.4) rgba(255,255,255,0.03);
-}
-.scroll-x::-webkit-scrollbar { height: 3px; }
-.scroll-x::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 999px; }
-.scroll-x::-webkit-scrollbar-thumb {
-  background: linear-gradient(90deg, #7a5518, #e0b040, #7a5518);
-  border-radius: 999px;
-}
-
-/* ═══════════════════════════════════════════════════════════════
    STAT BAR
    ═══════════════════════════════════════════════════════════════ */
 .stat-bar {
   height: 6px;
   border-radius: 3px;
-  background: rgba(255,255,255,0.05);
+  background: rgba(11,78,162,0.25);
   overflow: hidden;
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
 }
@@ -295,16 +324,16 @@ body {
 .rpg-modal {
   position: relative;
   background:
-    radial-gradient(ellipse 80% 35% at 50% 0%, rgba(200,146,42,0.1) 0%, transparent 55%),
-    linear-gradient(160deg, rgba(22,15,38,0.99) 0%, rgba(12,8,22,1) 100%);
-  border: 1px solid rgba(200,146,42,0.5);
+    radial-gradient(ellipse 80% 35% at 50% 0%, rgba(200,146,42,0.12) 0%, transparent 55%),
+    linear-gradient(160deg, rgba(6,23,45,0.99) 0%, rgba(4,16,33,1) 100%);
+  border: 1px solid rgba(200,146,42,0.55);
   border-radius: 18px;
   box-shadow:
-    inset 0 1px 0 rgba(245,216,120,0.18),
+    inset 0 1px 0 rgba(245,216,120,0.2),
     inset 0 -1px 0 rgba(0,0,0,0.5),
     0 0 0 1px rgba(0,0,0,0.7),
     0 24px 60px rgba(0,0,0,0.85),
-    0 0 40px rgba(200,146,42,0.08);
+    0 0 40px rgba(200,146,42,0.1);
 }
 
 /* Double inner border ornament */
@@ -312,7 +341,7 @@ body {
   content: '';
   position: absolute;
   inset: 6px;
-  border: 1px solid rgba(200,146,42,0.12);
+  border: 1px solid rgba(200,146,42,0.14);
   border-radius: 13px;
   pointer-events: none;
   z-index: 0;
@@ -571,54 +600,47 @@ body {
 .pixel { image-rendering: pixelated; image-rendering: crisp-edges; }
 
 /* ═══════════════════════════════════════════════════════════════
-   HERO SCENE — futuristic WebGPU component
+   HOME PAGE BACKGROUND
    ═══════════════════════════════════════════════════════════════ */
-.fade-in {
-  opacity: 0;
-  animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-.fade-in-subtitle {
-  opacity: 0;
-  animation: fadeIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-/* Scroll-to-explore button */
-.explore-btn {
-  position: absolute;
-  bottom: 36px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-  background: none;
-  border: none;
-  cursor: pointer;
-  opacity: 0;
-  animation: fadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  transition: color 0.3s ease;
-}
-.explore-btn:hover {
-  color: rgba(255, 255, 255, 0.85);
-}
-.explore-arrow {
-  display: block;
-}
-.arrow-svg {
-  animation: arrowBounce 2s ease-in-out infinite;
-}
-@keyframes arrowBounce {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(6px); }
+.home-bg {
+  min-height: 100dvh;
+  background-image:
+    linear-gradient(180deg,
+      rgba(4, 10, 22, 0.65) 0%,
+      rgba(4, 10, 22, 0.72) 40%,
+      rgba(4, 10, 22, 0.88) 100%
+    ),
+    url('/home_bg.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: local;
 }
 
-/* z-60 utility for hero overlay text */
-.z-60 { z-index: 60; }
+/* ── Chest animations (keyframes only — classes applied via Tailwind animate-[]) ── */
+@keyframes chestGlow {
+  0%,100% { box-shadow: 0 0 12px rgba(200,146,42,0.2); }
+  50%      { box-shadow: 0 0 28px rgba(200,146,42,0.5); }
+}
+@keyframes chestShake {
+  0%,100% { transform: rotate(0deg) scale(1); }
+  15%     { transform: rotate(-6deg) scale(1.05); }
+  30%     { transform: rotate(6deg)  scale(1.08); }
+  45%     { transform: rotate(-4deg) scale(1.06); }
+  60%     { transform: rotate(4deg)  scale(1.04); }
+  75%     { transform: rotate(-2deg) scale(1.02); }
+}
+@keyframes chestBounce {
+  0%,100% { transform: scale(1) translateY(0); }
+  30%     { transform: scale(1.2) translateY(-8px); }
+  60%     { transform: scale(0.95) translateY(2px); }
+}
+@keyframes chestOpenPop {
+  0%   { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+  60%  { transform: scale(1.15) rotate(5deg);  opacity: 1; }
+  100% { transform: scale(1) rotate(0deg);     opacity: 1; }
+}
+.chest-glow      { animation: chestGlow 2s ease-in-out infinite; }
+.chest-shake     { animation: chestShake 0.9s ease-in-out both; }
+.chest-bounce    { animation: chestBounce 0.9s ease-in-out both; }
+.chest-open-anim { animation: chestOpenPop 0.5s cubic-bezier(0.22,1,0.36,1) both; }

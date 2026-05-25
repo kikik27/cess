@@ -7,12 +7,12 @@ import { SPRITE_SHEETS, getSpriteKey, type AnimState } from '../assets/spriteReg
 import { loadImg, preloadAllGameImages } from './assetLoader'
 import { drawArena, drawFloats, drawHpBar, drawProjectiles, drawStars, drawUnit } from './drawHelpers'
 
-export const BOARD_W = 800
-export const BOARD_H = 540
-export const CW = BOARD_W / COLS   // 100
-export const CH = BOARD_H / ROWS   // 90
-const SPRITE_W = 88
-const SPRITE_H = 96
+export const BOARD_W = 480
+export const BOARD_H = 640
+export const CW = BOARD_W / COLS   // 60
+export const CH = BOARD_H / ROWS   // 80
+const SPRITE_W = 54
+const SPRITE_H = 68
 const TILE_SIZE = 64
 
 // ─── Image loading moved to assetLoader.ts ───────────────────────────────────
@@ -116,13 +116,12 @@ export default function PixiBoard({
       const curProjs    = projectilesRef.current
       const animDelta   = curSpeedUp ? deltaMs * 3 : deltaMs
 
-      // Smooth movement: move visual position toward logical at fixed px/s speed
-      // 100px per cell, ~0.8s per cell = ~125 px/s
-      const MOVE_PX_PER_SEC = 125
+      // 60px per cell, ~0.8s per cell = ~75 px/s
+      const MOVE_PX_PER_SEC = 75
       const maxStep = MOVE_PX_PER_SEC * (deltaMs / 1000)
 
       let boardUnitCount = 0
-      for (let r = 3; r < ROWS; r++)
+      for (let r = 4; r < ROWS; r++)
         for (let c = 0; c < COLS; c++)
           if (curBoard[r][c] && !curBoard[r][c]!.enemy) boardUnitCount++
 
@@ -143,12 +142,20 @@ export default function PixiBoard({
       // Draw cell highlights
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          const isEnemyZone = r < 3
+          const isEnemyZone   = r < 4
+          const isBuildingRow = r === 0 || r === ROWS - 1
           const isSelected = curSelected?.src === 'board' &&
             (curSelected as { src: 'board'; r: number; c: number }).r === r &&
             (curSelected as { src: 'board'; r: number; c: number }).c === c
-          const isDropTarget = curPhase === 'prep' && !isEnemyZone && !isSelected &&
+          const isDropTarget = curPhase === 'prep' && !isEnemyZone && !isBuildingRow && !isSelected &&
             curSelected !== null && boardUnitCount < curMaxSlots && !curBoard[r][c]
+
+          // Building row overlay — darker, no interaction
+          if (isBuildingRow) {
+            ctx.fillStyle = 'rgba(0,0,0,0.35)'
+            ctx.fillRect(c * CW, r * CH, CW, CH)
+          }
+
           if (isSelected) {
             ctx.fillStyle = 'rgba(100,200,255,0.30)'; ctx.fillRect(c*CW, r*CH, CW, CH)
             ctx.strokeStyle = 'rgba(100,200,255,0.8)'; ctx.lineWidth = 2; ctx.strokeRect(c*CW+1, r*CH+1, CW-2, CH-2)
@@ -199,7 +206,7 @@ export default function PixiBoard({
 
       if (curSpeedUp) {
         ctx.save(); ctx.font = 'bold 11px sans-serif'
-        ctx.fillStyle = 'rgba(255,160,40,0.9)'; ctx.fillText('⚡ 3× SPEED', BOARD_W - 80, 14); ctx.restore()
+        ctx.fillStyle = 'rgba(255,160,40,0.9)'; ctx.fillText('3x SPEED', BOARD_W - 80, 14); ctx.restore()
       }
 
       rafRef.current = requestAnimationFrame(loop)
@@ -217,6 +224,7 @@ export default function PixiBoard({
     const mx = (e.clientX - rect.left) * scaleX, my = (e.clientY - rect.top) * scaleY
     const col = Math.floor(mx / CW), row = Math.floor(my / CH)
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return
+    if (row === 0 || row === ROWS - 1) return  // building rows — not clickable
     onCellClick(row, col)
   }
 
