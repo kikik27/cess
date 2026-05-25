@@ -1,0 +1,24 @@
+import Image from 'next/image'
+
+export default function AppHeader() {
+  return (
+    <header className="relative z-10 flex items-center justify-between px-4 pt-4 pb-2">
+      <Image
+        src="/logo.png"
+        alt="CETAS"
+        width={80}
+        height={28}
+        className="object-contain"
+        style={{ height: 'auto' }}
+        priority
+      />
+      <div className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-white/[0.04] px-3 py-1">
+        <span className="font-display text-[9px] uppercase tracking-[0.2em] text-[var(--text-3)]">
+          Celo Tactics
+        </span>
+        <span className="h-1 w-1 rounded-full bg-[var(--ok)]" />
+        <span className="font-display text-[9px] text-[var(--ok)]">v0.1</span>
+      </div>
+    </header>
+  )
+}

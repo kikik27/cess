@@ -1,5 +1,7 @@
+import Link from 'next/link'
+import { Button } from '@/src/components/ui/Button'
+import { Swords } from 'lucide-react'
 import LandingClient from '@/src/ui/LandingClient'
-import LandingGate from '@/src/ui/LandingGate'
 
 const LEAVES = [
   { src: '/assets/fx/leaf/1.png', cls: 'leaf l1', w: 22 },
@@ -12,17 +14,16 @@ const LEAVES = [
   { src: '/assets/fx/leaf/3.png', cls: 'leaf l8', w: 20 },
 ]
 
-export default function RootPage() {
+/**
+ * /welcome — cinematic landing page.
+ * Shown to first-time users via redirect from /, or accessible directly for demo.
+ */
+export default function WelcomePage() {
   return (
     <div className="landing-bg game-scroll app-frame-outer mobile-shell relative overflow-hidden flex flex-col">
-
-      {/* ── Black curtain — covers everything, fades out first ── */}
       <div className="curtain" aria-hidden />
-
-      {/* ── Vignette overlay ── */}
       <div className="landing-overlay" aria-hidden />
 
-      {/* ── Leaves — ambient, always running ── */}
       {LEAVES.map((l, i) => (
         // eslint-disable-next-line @next/next/no-img-element
         <div key={`leaf-${i}`} className={l.cls} aria-hidden>
@@ -30,7 +31,6 @@ export default function RootPage() {
         </div>
       ))}
 
-      {/* ── Subtitle + Logo ── */}
       <section className="relative z-10 flex flex-col items-center gap-2 px-4 pt-10 pb-4">
         <p className="intro-subtitle font-display text-[10px] uppercase tracking-[0.32em] text-[rgba(245,216,120,0.7)]">
           Dark Fantasy Auto Battler
@@ -45,21 +45,18 @@ export default function RootPage() {
         <div className="intro-burst" aria-hidden />
       </section>
 
-      {/* ── CTA ── */}
       <section className="intro-cta relative z-10 flex flex-col gap-3 px-4 pb-6">
-        {/*
-          LandingGate renders the PLAY NOW button.
-          - First-time user → opens onboarding dialog (name + avatar) → /home
-          - Returning user  → navigates directly to /home
-        */}
-        <LandingGate />
-
+        <Link href="/">
+          <Button variant="pixelGold" size="lg" className="w-full font-black tracking-wider">
+            <Swords className="h-5 w-5" />
+            ENTER
+          </Button>
+        </Link>
         <p className="text-center font-display text-[10px] uppercase tracking-[0.2em] text-[rgba(245,216,120,0.5)]">
           Celo Tactics · Mini App Edition
         </p>
       </section>
 
-      {/* ── Music prompt (client-only) ── */}
       <LandingClient />
     </div>
   )
