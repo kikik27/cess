@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 import type { GameState, SelectedSource } from '../core/types'
 import { emptyBoard, getBoardUnitCount, placeOnBoard, placeOnBench } from '../systems/boardSystem'
-import { generateShop, checkMerge, buyUnit as buyUnitFn } from '../systems/shopSystem'
+import { generateShop, checkFormationMerge, buyUnit as buyUnitFn } from '../systems/shopSystem'
 import { generateEnemies, runBattleStep, evaluateBattleEnd, generateEnemyPreview } from '../systems/combatSystem'
 import { getDefById, makeUnit } from '../core/unitFactory'
 import {
@@ -23,6 +23,10 @@ const MAX_LOG = 5
 function addLog(logs: string[], msg: string): string[] {
   const next = [...logs, msg]
   return next.length > MAX_LOG ? next.slice(next.length - MAX_LOG) : next
+}
+
+function addLogs(logs: string[], messages: string[]): string[] {
+  return messages.reduce((acc, msg) => addLog(acc, msg), logs)
 }
 
 interface GameActions {
@@ -227,15 +231,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (selected) {
       const result = placeOnBoard(board, bench, selected, row, col, maxBoardSlots)
+      const merged = result.error
+        ? { board: result.board, bench: result.bench, mergeLog: [] }
+        : checkFormationMerge(result.board, result.bench)
       set(s => ({
-        board: result.board,
-        bench: result.bench,
+        board: merged.board,
+        bench: merged.bench,
         selected: result.selected,
-        log: result.error
-          ? addLog(s.log, result.error)
-          : result.log
-          ? addLog(s.log, result.log)
-          : s.log,
+        log: addLogs(
+          result.error
+            ? addLog(s.log, result.error)
+            : result.log
+            ? addLog(s.log, result.log)
+            : s.log,
+          merged.mergeLog,
+        ),
       }))
       persistGameProgress(get())
     } else {
@@ -252,7 +262,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (selected) {
       const result = placeOnBench(board, bench, selected, idx)
-      set({ board: result.board, bench: result.bench, selected: result.selected })
+      const merged = checkFormationMerge(result.board, result.bench)
+      set(s => ({
+        board: merged.board,
+        bench: merged.bench,
+        selected: result.selected,
+        log: addLogs(s.log, merged.mergeLog),
+      }))
       persistGameProgress(get())
     } else {
       if (bench[idx]) set({ selected: { src: 'bench', idx } })
@@ -260,7 +276,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   buyUnit(shopIdx) {
-    const { shop, bench, gold } = get()
+    const { shop, board, bench, gold } = get()
     const item = shop[shopIdx]
     if (!item) return
 
@@ -270,17 +286,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return
     }
 
-    const { bench: newBench, mergeLog } = checkMerge(result.bench)
+    const { board: newBoard, bench: newBench, mergeLog } = checkFormationMerge(board, result.bench)
     const updatedShop = shop.map((s, i) => i === shopIdx ? result.shopItem : s)
 
     set(s => ({
       shop: updatedShop,
+      board: newBoard,
       bench: newBench,
       gold: result.gold,
-      log: mergeLog.reduce(
-        (acc, m) => addLog(acc, m),
-        addLog(s.log, result.log),
-      ),
+      selected: mergeLog.length ? null : s.selected,
+      log: addLogs(addLog(s.log, result.log), mergeLog),
     }))
     persistGameProgress(get())
   },
