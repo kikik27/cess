@@ -322,7 +322,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   buyUnit(shopIdx) {
-    const { shop, board, bench, gold } = get()
+    const { phase, shop, board, bench, gold } = get()
+    if (phase !== 'prep') return
     const item = shop[shopIdx]
     if (!item) return
 
@@ -348,7 +349,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   reroll() {
-    const { gold, rerollsLeft } = get()
+    const { phase, gold, rerollsLeft } = get()
+    if (phase !== 'prep') return
     if (rerollsLeft <= 0) {
       set(s => ({ log: addLog(s.log, 'No shop refreshes left this stage.') }))
       return
@@ -368,7 +370,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   sellSelected() {
-    const { selected, board, bench } = get()
+    const { phase, selected, board, bench } = get()
+    if (phase !== 'prep') return
     if (!selected) return
 
     const b = board.map(row => [...row])

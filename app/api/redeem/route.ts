@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     const startOfToday = new Date()
     startOfToday.setHours(0, 0, 0, 0)
 
-    const [player, history] = await Promise.all([
+    const [player, history, todayRows] = await Promise.all([
       prisma.player.findUnique({
         where:  { id: auth.playerId },
         select: { totalPoints: true },
@@ -50,13 +50,19 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
         take:    10,
       }),
+      prisma.pointRedemption.findMany({
+        where: {
+          playerId: auth.playerId,
+          createdAt: { gte: startOfToday },
+          status: { not: 'failed' },
+        },
+        select: { points: true },
+      }),
     ])
 
     if (!player) return NextResponse.json({ error: 'Player not found' }, { status: 404 })
 
-    const redeemedToday = history
-      .filter(item => item.createdAt >= startOfToday && item.status !== 'failed')
-      .reduce((sum, item) => sum + item.points, 0)
+    const redeemedToday = todayRows.reduce((sum, item) => sum + item.points, 0)
     const dailyRemaining = Math.max(0, DAILY_REDEEM_LIMIT_POINTS - redeemedToday)
 
     const dto: RedeemSummaryDTO = {
@@ -96,6 +102,8 @@ export async function POST(req: NextRequest) {
     startOfToday.setHours(0, 0, 0, 0)
 
     const [updated, redemption] = await prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${auth.playerId}))`
+
       const todayRows = await tx.pointRedemption.findMany({
         where: {
           playerId: auth.playerId,

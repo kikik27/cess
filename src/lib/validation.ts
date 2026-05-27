@@ -47,6 +47,8 @@ export const avatarIdxSchema = z
 
 export const loginBodySchema = z.object({
   wallet: walletAddressSchema,
+  message: z.string().min(1).max(500).optional(),
+  signature: z.string().regex(/^0x[0-9a-fA-F]+$/, 'Invalid signature').optional(),
 })
 
 // ─── Player ───────────────────────────────────────────────────────────────────
@@ -67,6 +69,10 @@ export const checkNameQuerySchema = z.object({
 export const claimTaskBodySchema = z.object({
   taskId: z.string().min(1, 'taskId required'),
 })
+
+export const taskDateQuerySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date')
 
 export const progressTaskBodySchema = z.object({
   taskId:    z.string().min(1, 'taskId required'),

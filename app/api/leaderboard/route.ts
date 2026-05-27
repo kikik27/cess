@@ -26,7 +26,10 @@ function getTier(score: number): string {
 }
 
 export async function GET(req: NextRequest) {
-  const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') ?? '50'), 100)
+  const rawLimit = Number.parseInt(req.nextUrl.searchParams.get('limit') ?? '50', 10)
+  const limit = Number.isFinite(rawLimit)
+    ? Math.max(1, Math.min(rawLimit, 100))
+    : 50
 
   // Leaderboard is public — auth is optional (only needed for myRank)
   const auth = await resolveAuth(req)

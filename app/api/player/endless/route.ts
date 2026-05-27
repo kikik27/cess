@@ -7,12 +7,14 @@ import {
   INITIAL_BOARD_SLOTS,
   REROLLS_PER_STAGE,
   MAX_BOARD_SLOTS,
-  ENDLESS_STAGE_POINT_REWARD,
-  ENDLESS_STAGE_XP_REWARD,
+  MAX_GOLD,
 } from '@/src/game/constants'
+import { UNIT_DEFS } from '@/src/game/entities/unitDefs'
+
+const VALID_UNIT_IDS = new Set(UNIT_DEFS.map(unit => unit.id))
 
 const savedUnitSchema = z.object({
-  id: z.string().min(1).max(64),
+  id: z.string().min(1).max(64).refine(id => VALID_UNIT_IDS.has(id), 'Invalid unit'),
   stars: z.union([z.literal(1), z.literal(2), z.literal(3)]),
 })
 
@@ -25,16 +27,12 @@ const savedBenchSchema = z.array(savedUnitSchema.nullable()).length(8)
 const endlessProgressSchema = z.object({
   stage: z.number().int().min(1).max(10_000),
   hp: z.number().int().min(0).max(100).optional(),
-  gold: z.number().int().min(0).max(100).optional(),
+  gold: z.number().int().min(0).max(MAX_GOLD).optional(),
   maxBoardSlots: z.number().int().min(1).max(MAX_BOARD_SLOTS).optional(),
   rerollsLeft: z.number().int().min(0).max(REROLLS_PER_STAGE).optional(),
   board: savedBoardSchema.optional(),
   bench: savedBenchSchema.optional(),
 }).strict()
-
-function levelForExperience(experience: number): number {
-  return Math.max(1, Math.floor(experience / 500) + 1)
-}
 
 export async function POST(req: NextRequest) {
   const { auth, error } = await requireAuth(req)
@@ -47,9 +45,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: getZodMessage(parsed.error) }, { status: 400 })
     }
 
+    const current = await prisma.player.findUnique({ where: { id: auth.playerId } })
+    if (!current) {
+      return NextResponse.json({ error: 'Player not found' }, { status: 404 })
+    }
+
+    const nextStage = Math.max(1, Math.min(parsed.data.stage, current.endlessStage + 1))
+    const nextBest = Math.max(current.bestStage, nextStage)
     const progress = parsed.data.board && parsed.data.bench
       ? {
-          stage: parsed.data.stage,
+          stage: nextStage,
           hp: parsed.data.hp ?? 100,
           gold: parsed.data.gold ?? 0,
           maxBoardSlots: parsed.data.maxBoardSlots ?? INITIAL_BOARD_SLOTS,
@@ -59,32 +64,11 @@ export async function POST(req: NextRequest) {
         }
       : undefined
 
-    const current = await prisma.player.findUnique({
-      where: { id: auth.playerId },
-      select: { bestStage: true, totalPoints: true, experience: true },
-    })
-    if (!current) {
-      return NextResponse.json({ error: 'Player not found' }, { status: 404 })
-    }
-
-    const previousBest = current.bestStage
-    const nextBest = Math.max(previousBest, parsed.data.stage)
-    const newlyClearedStages = Math.max(0, nextBest - previousBest)
-    const stagePointReward = newlyClearedStages * ENDLESS_STAGE_POINT_REWARD
-    const stageXpReward = newlyClearedStages * ENDLESS_STAGE_XP_REWARD
-    const nextTotalPoints = current.totalPoints + stagePointReward
-    const nextExperience = current.experience + stageXpReward
-
     await prisma.player.update({
       where: { id: auth.playerId },
       data: {
-        endlessStage: { set: parsed.data.stage },
+        endlessStage: { set: nextStage },
         bestStage: { set: nextBest },
-        ...(stagePointReward > 0 && {
-          totalPoints: { increment: stagePointReward },
-          experience: { increment: stageXpReward },
-          level: { set: levelForExperience(nextExperience) },
-        }),
         ...(progress && { gameProgress: progress }),
       },
     })
@@ -99,11 +83,11 @@ export async function POST(req: NextRequest) {
         endlessStage: player?.endlessStage ?? parsed.data.stage,
         bestStage: player?.bestStage ?? nextBest,
         gameProgress: player?.gameProgress ?? progress ?? null,
-        totalPoints: player?.totalPoints ?? nextTotalPoints,
-        experience: player?.experience ?? nextExperience,
-        level: player?.level ?? levelForExperience(nextExperience),
-        pointsAwarded: stagePointReward,
-        experienceAwarded: stageXpReward,
+        totalPoints: player?.totalPoints ?? current.totalPoints,
+        experience: player?.experience ?? current.experience,
+        level: player?.level ?? current.level,
+        pointsAwarded: 0,
+        experienceAwarded: 0,
       },
     })
   } catch (err) {
