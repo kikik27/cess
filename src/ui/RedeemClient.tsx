@@ -7,7 +7,6 @@ import {
   Check,
   ChevronRight,
   Coins,
-  Gem,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -140,7 +139,16 @@ export default function RedeemClient() {
             value={playerLoading && !player ? '...' : formatPoints(pointsBalance)}
           />
           <StatTile
-            icon={<Gem className="h-4 w-4 text-[#8fffe0]" />}
+            icon={ <Image
+            src="/assets/celo/logo-symbol.png"
+            alt=""
+            width={18}
+            height={18}
+            loading="eager"
+            unoptimized
+            className="object-contain"
+            aria-hidden
+          />}
             label="Est. CELO"
             value={formatCelo(estimate)}
           />
@@ -310,7 +318,16 @@ function HistoryRow({ item }: { item: PointRedemptionDTO }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[rgba(4,16,33,0.72)] px-3 py-2.5">
       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-[rgba(200,146,42,0.25)] bg-[rgba(200,146,42,0.08)]">
-        <Gem className="h-4 w-4 text-[#8fffe0]" />
+         <Image
+            src="/assets/celo/logo-symbol.png"
+            alt=""
+            width={18}
+            height={18}
+            loading="eager"
+            unoptimized
+            className="object-contain"
+            aria-hidden
+          />
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-display text-[12px] font-bold text-[var(--text-1)]">
