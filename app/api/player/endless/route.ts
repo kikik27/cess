@@ -8,6 +8,7 @@ import {
   REROLLS_PER_STAGE,
   MAX_BOARD_SLOTS,
   ENDLESS_STAGE_POINT_REWARD,
+  ENDLESS_STAGE_XP_REWARD,
 } from '@/src/game/constants'
 
 const savedUnitSchema = z.object({
@@ -31,8 +32,8 @@ const endlessProgressSchema = z.object({
   bench: savedBenchSchema.optional(),
 }).strict()
 
-function levelForPoints(points: number): number {
-  return Math.max(1, Math.floor(points / 500) + 1)
+function levelForExperience(experience: number): number {
+  return Math.max(1, Math.floor(experience / 500) + 1)
 }
 
 export async function POST(req: NextRequest) {
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     const current = await prisma.player.findUnique({
       where: { id: auth.playerId },
-      select: { bestStage: true, totalPoints: true },
+      select: { bestStage: true, totalPoints: true, experience: true },
     })
     if (!current) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 })
@@ -70,7 +71,9 @@ export async function POST(req: NextRequest) {
     const nextBest = Math.max(previousBest, parsed.data.stage)
     const newlyClearedStages = Math.max(0, nextBest - previousBest)
     const stagePointReward = newlyClearedStages * ENDLESS_STAGE_POINT_REWARD
+    const stageXpReward = newlyClearedStages * ENDLESS_STAGE_XP_REWARD
     const nextTotalPoints = current.totalPoints + stagePointReward
+    const nextExperience = current.experience + stageXpReward
 
     await prisma.player.update({
       where: { id: auth.playerId },
@@ -79,7 +82,8 @@ export async function POST(req: NextRequest) {
         bestStage: { set: nextBest },
         ...(stagePointReward > 0 && {
           totalPoints: { increment: stagePointReward },
-          level: { set: levelForPoints(nextTotalPoints) },
+          experience: { increment: stageXpReward },
+          level: { set: levelForExperience(nextExperience) },
         }),
         ...(progress && { gameProgress: progress }),
       },
@@ -87,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     const player = await prisma.player.findUnique({
       where: { id: auth.playerId },
-      select: { endlessStage: true, bestStage: true, gameProgress: true, totalPoints: true, level: true },
+      select: { endlessStage: true, bestStage: true, gameProgress: true, totalPoints: true, experience: true, level: true },
     })
 
     return NextResponse.json({
@@ -96,8 +100,10 @@ export async function POST(req: NextRequest) {
         bestStage: player?.bestStage ?? nextBest,
         gameProgress: player?.gameProgress ?? progress ?? null,
         totalPoints: player?.totalPoints ?? nextTotalPoints,
-        level: player?.level ?? levelForPoints(nextTotalPoints),
+        experience: player?.experience ?? nextExperience,
+        level: player?.level ?? levelForExperience(nextExperience),
         pointsAwarded: stagePointReward,
+        experienceAwarded: stageXpReward,
       },
     })
   } catch (err) {

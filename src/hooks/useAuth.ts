@@ -155,6 +155,7 @@ function asPlayerDTO(value: Partial<PlayerDTO>): PlayerDTO | null {
     typeof value.name === 'string' &&
     typeof value.avatarIdx === 'number' &&
     typeof value.totalPoints === 'number' &&
+    typeof value.experience === 'number' &&
     typeof value.level === 'number' &&
     typeof value.endlessStage === 'number' &&
     typeof value.bestStage === 'number' &&

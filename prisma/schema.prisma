@@ -16,6 +16,7 @@ model Player {
   name             String   @unique
   avatarIdx        Int      @default(1) @map("avatar_idx")
   totalPoints      Int      @default(0) @map("total_points")
+  experience       Int      @default(0)
   level            Int      @default(1)
   endlessStage     Int      @default(1) @map("endless_stage")
   bestStage        Int      @default(1) @map("best_stage")

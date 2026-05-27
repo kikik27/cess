@@ -37,6 +37,7 @@ export interface PlayerDTO {
   name:            string
   avatarIdx:       number
   totalPoints:     number
+  experience:      number
   level:           number
   endlessStage:    number
   bestStage:       number

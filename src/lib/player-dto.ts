@@ -7,6 +7,7 @@ export type PlayerDTORecord = {
   name: string
   avatarIdx: number
   totalPoints: number
+  experience: number
   level: number
   endlessStage: number
   bestStage: number
@@ -24,6 +25,7 @@ export function toPlayerDTO(player: PlayerDTORecord): PlayerDTO {
     name:            player.name,
     avatarIdx:       player.avatarIdx,
     totalPoints:     player.totalPoints,
+    experience:      player.experience,
     level:           player.level,
     endlessStage:    player.endlessStage,
     bestStage:       player.bestStage,
