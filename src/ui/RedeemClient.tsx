@@ -1,9 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Check,
@@ -18,229 +16,70 @@ import {
   Wallet,
 } from 'lucide-react'
 import { Button } from '@/src/components/ui/Button'
+import { Badge } from '@/src/components/ui/Badge'
+import { EmptyState } from '@/src/components/ui/EmptyState'
 import { LoadingRows } from '@/src/components/ui/LoadingState'
-import { syncPlayerQuery, usePlayer } from '@/src/hooks/usePlayer'
+import { StatTile } from '@/src/components/ui/StatTile'
+import { usePlayer } from '@/src/hooks/usePlayer'
+import { useRedeemPoints, useRedeemSummary } from '@/src/hooks/useRedeem'
 import { useWallet } from '@/src/providers/WalletProvider'
 import { cn } from '@/src/lib/utils'
-import BottomNav from './home/BottomNav'
-
-type RedeemStatus = 'pending' | 'mocked' | 'confirmed' | 'failed'
-
-type RedeemHistoryItem = {
-  id: string
-  points: number
-  celo: number
-  status: RedeemStatus
-  createdAt: string
-}
-
-type RedeemQuote = {
-  totalPoints: number | null
-  rate: number
-  rateLabel: string
-  mock: boolean
-  minPoints: number
-  maxPoints: number
-  dailyLimit: number
-  redeemedToday: number
-  history: RedeemHistoryItem[]
-}
-
-const FALLBACK_QUOTE: RedeemQuote = {
-  totalPoints: null,
-  rate: 0.00025,
-  rateLabel: '1 pt = 0.00025 CELO',
-  mock: true,
-  minPoints: 100,
-  maxPoints: 5000,
-  dailyLimit: 5000,
-  redeemedToday: 0,
-  history: [
-    {
-      id: 'mock-1',
-      points: 750,
-      celo: 0.1875,
-      status: 'mocked',
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    },
-    {
-      id: 'mock-2',
-      points: 300,
-      celo: 0.075,
-      status: 'pending',
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
-    },
-  ],
-}
+import type { PointRedemptionDTO } from '@/src/lib/api-types'
+import { formatCelo, formatPoints, formatShortDate } from '@/src/lib/format'
+import {
+  CELO_PER_POINT,
+  DAILY_REDEEM_LIMIT_POINTS,
+  MIN_REDEEM_POINTS,
+  REDEEM_RATE_LABEL,
+} from '@/src/lib/redeem-config'
 
 const QUICK_PRESETS = [250, 500, 1000, 2500]
 
-function formatPoints(value: number) {
-  return value.toLocaleString('en-US')
-}
-
-function formatCelo(value: number) {
-  return value.toLocaleString('en-US', {
-    minimumFractionDigits: value >= 1 ? 2 : 4,
-    maximumFractionDigits: 4,
-  })
-}
-
-function parseRateLabel(rateLabel: string | undefined) {
-  if (!rateLabel) return FALLBACK_QUOTE.rate
-
-  const [pointsPart, celoPart] = rateLabel.split('=')
-  const points = Number.parseFloat(pointsPart?.replace(/[^0-9.]/g, '') ?? '')
-  const celo = Number.parseFloat(celoPart?.replace(/[^0-9.]/g, '') ?? '')
-
-  return points > 0 && celo > 0 ? celo / points : FALLBACK_QUOTE.rate
-}
-
-function normalizeHistoryItem(item: Partial<RedeemHistoryItem> & { celoAmount?: string }): RedeemHistoryItem {
-  const parsedCelo = Number.parseFloat(item.celoAmount ?? '0') || 0
-
-  return {
-    id: item.id ?? crypto.randomUUID(),
-    points: item.points ?? 0,
-    celo: item.celo ?? parsedCelo,
-    status: item.status ?? 'mocked',
-    createdAt: item.createdAt ?? new Date().toISOString(),
-  }
-}
-
-function normalizeQuote(payload: unknown): RedeemQuote {
-  const envelope = payload as { data?: Record<string, unknown> }
-  const data = (envelope?.data ?? payload) as Partial<RedeemQuote> & {
-    totalPoints?: number
-    rateLabel?: string
-    mock?: boolean
-    history?: Array<Partial<RedeemHistoryItem> & { celoAmount?: string }>
-  }
-  const rateLabel = data.rateLabel ?? FALLBACK_QUOTE.rateLabel
-
-  return {
-    ...FALLBACK_QUOTE,
-    totalPoints: typeof data.totalPoints === 'number' ? data.totalPoints : FALLBACK_QUOTE.totalPoints,
-    rate: typeof data.rate === 'number' ? data.rate : parseRateLabel(rateLabel),
-    rateLabel,
-    mock: data.mock ?? FALLBACK_QUOTE.mock,
-    minPoints: data.minPoints ?? FALLBACK_QUOTE.minPoints,
-    maxPoints: data.maxPoints ?? data.totalPoints ?? FALLBACK_QUOTE.maxPoints,
-    dailyLimit: data.dailyLimit ?? FALLBACK_QUOTE.dailyLimit,
-    redeemedToday: data.redeemedToday ?? FALLBACK_QUOTE.redeemedToday,
-    history: data.history?.map(normalizeHistoryItem) ?? [],
-  }
-}
-
 export default function RedeemClient() {
-  const queryClient = useQueryClient()
   const { authStatus, player: walletPlayer } = useWallet()
   const { data: queryPlayer, isLoading: playerLoading } = usePlayer(authStatus === 'authenticated')
+  const isReady = authStatus === 'authenticated'
+  const { data: summary, isLoading: redeemLoading, isFetching: redeemFetching, refetch } = useRedeemSummary(isReady)
+  const redeemMutation = useRedeemPoints()
   const player = queryPlayer ?? walletPlayer
 
-  const [quote, setQuote] = useState<RedeemQuote>(FALLBACK_QUOTE)
-  const [quoteState, setQuoteState] = useState<'loading' | 'mock' | 'live'>('loading')
   const [amount, setAmount] = useState('500')
-  const [redeeming, setRedeeming] = useState(false)
-  const [localHistory, setLocalHistory] = useState<RedeemHistoryItem[]>([])
   const [toast, setToast] = useState<string | null>(null)
-  const [refreshNonce, setRefreshNonce] = useState(0)
-
-  const pointsBalance = quote.totalPoints ?? player?.totalPoints ?? 0
-
-  useEffect(() => {
-    let alive = true
-
-    async function loadQuote() {
-      if (authStatus !== 'authenticated') {
-        setQuoteState('mock')
-        return
-      }
-
-      setQuoteState('loading')
-      try {
-        const res = await fetch('/api/redeem', { cache: 'no-store', credentials: 'include' })
-        if (!res.ok) throw new Error('Redeem quote unavailable')
-        const payload = await res.json() as unknown
-
-        if (!alive) return
-        setQuote(normalizeQuote(payload))
-        setQuoteState('live')
-      } catch {
-        if (!alive) return
-        setQuote(FALLBACK_QUOTE)
-        setQuoteState('mock')
-      }
-    }
-
-    loadQuote()
-    return () => { alive = false }
-  }, [authStatus, refreshNonce])
+  const pointsBalance = summary?.totalPoints ?? player?.totalPoints ?? 0
+  const minPoints = summary?.minPoints ?? MIN_REDEEM_POINTS
+  const maxPoints = summary?.maxPoints ?? pointsBalance
+  const rateLabel = summary?.rateLabel ?? REDEEM_RATE_LABEL
+  const celoPerPoint = summary?.celoPerPoint ?? CELO_PER_POINT
+  const dailyLimit = summary?.dailyLimit ?? DAILY_REDEEM_LIMIT_POINTS
+  const redeemedToday = summary?.redeemedToday ?? 0
 
   const parsedAmount = Math.max(0, Number.parseInt(amount.replace(/\D/g, ''), 10) || 0)
-  const estimate = useMemo(() => parsedAmount * quote.rate, [parsedAmount, quote.rate])
-  const dailyRemaining = Math.max(0, quote.dailyLimit - quote.redeemedToday)
-  const clampedMax = Math.min(pointsBalance || quote.maxPoints, quote.maxPoints, dailyRemaining || quote.maxPoints)
-  const progressPct = quote.dailyLimit > 0
-    ? Math.min(100, Math.round((quote.redeemedToday / quote.dailyLimit) * 100))
+  const estimate = useMemo(() => parsedAmount * celoPerPoint, [parsedAmount, celoPerPoint])
+  const dailyRemaining = Math.max(0, dailyLimit - redeemedToday)
+  const clampedMax = Math.min(pointsBalance || maxPoints, maxPoints, dailyRemaining || maxPoints)
+  const progressPct = dailyLimit > 0
+    ? Math.min(100, Math.round((redeemedToday / dailyLimit) * 100))
     : 0
 
   const validationMessage =
     authStatus !== 'authenticated' ? 'Connect your wallet to prepare a redeem request.'
-    : parsedAmount < quote.minPoints ? `Minimum redeem is ${formatPoints(quote.minPoints)} pts.`
+    : parsedAmount < minPoints ? `Minimum redeem is ${formatPoints(minPoints)} pts.`
     : pointsBalance > 0 && parsedAmount > pointsBalance ? 'You do not have enough points.'
-    : parsedAmount > quote.maxPoints ? `Single redeem cap is ${formatPoints(quote.maxPoints)} pts.`
+    : parsedAmount > maxPoints ? `Redeem cap is ${formatPoints(maxPoints)} pts right now.`
     : dailyRemaining > 0 && parsedAmount > dailyRemaining ? 'This exceeds the mock daily limit.'
     : null
 
-  const canRedeem = !validationMessage && parsedAmount > 0 && !redeeming
-  const history = [...localHistory, ...quote.history]
+  const canRedeem = !validationMessage && parsedAmount > 0 && !redeemMutation.isPending
 
   async function handleRedeem() {
     if (!canRedeem) return
 
-    setRedeeming(true)
     setToast(null)
-
     try {
-      const res = await fetch('/api/redeem', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ points: parsedAmount }),
-      })
-
-      if (!res.ok) throw new Error('Mock redeem queued locally')
-      const payload = await res.json() as {
-        data?: {
-          totalPoints?: number
-          redemption?: Partial<RedeemHistoryItem> & { celoAmount?: string }
-        }
-      }
-      const redemption = payload.data?.redemption ?? payload.data ?? {}
-
-      if (typeof payload.data?.totalPoints === 'number') {
-        setQuote(prev => ({ ...prev, totalPoints: payload.data?.totalPoints ?? prev.totalPoints }))
-        await syncPlayerQuery(queryClient, { totalPoints: payload.data.totalPoints })
-      }
-      setLocalHistory(prev => [normalizeHistoryItem({
-        points: parsedAmount,
-        celo: estimate,
-        status: 'pending',
-        ...redemption,
-      }), ...prev])
+      await redeemMutation.mutateAsync(parsedAmount)
       setToast('Redeem request queued for contract settlement.')
-    } catch {
-      setLocalHistory(prev => [{
-        id: crypto.randomUUID(),
-        points: parsedAmount,
-        celo: estimate,
-        status: 'mocked',
-        createdAt: new Date().toISOString(),
-      }, ...prev])
-      setToast('Mock redeem recorded locally until /api/redeem is ready.')
-    } finally {
-      setRedeeming(false)
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Redeem failed.')
     }
   }
 
@@ -267,14 +106,14 @@ export default function RedeemClient() {
             Points to CELO
           </p>
         </div>
-        <span className={cn(
+        <Badge className={cn(
           'ml-auto rounded-full border px-2 py-1 font-display text-[8px] font-bold uppercase tracking-wider',
-          quoteState === 'live'
+          summary
             ? 'border-[rgba(61,186,106,0.35)] bg-[rgba(61,186,106,0.1)] text-[var(--ok)]'
             : 'border-[rgba(224,128,32,0.35)] bg-[rgba(224,128,32,0.1)] text-[var(--warn)]'
         )}>
-          {quoteState === 'loading' ? 'Syncing' : quoteState === 'live' ? 'Live quote' : 'Mock mode'}
-        </span>
+          {redeemLoading || redeemFetching ? 'Syncing' : summary ? 'Mock live' : 'Mock mode'}
+        </Badge>
       </div>
 
       <div className="game-scroll flex flex-1 flex-col gap-3 overflow-y-auto">
@@ -314,7 +153,7 @@ export default function RedeemClient() {
               Redeem Amount
             </span>
             <span className="ml-auto text-[9px] uppercase tracking-wider text-[var(--text-3)]">
-              {quote.rateLabel}
+              {rateLabel}
             </span>
           </div>
 
@@ -326,34 +165,42 @@ export default function RedeemClient() {
               <input
                 id="redeem-points"
                 inputMode="numeric"
+                name="redeem-points"
+                type="text"
+                pattern="[0-9]*"
+                autoComplete="off"
                 value={amount}
                 onChange={event => setAmount(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="min-w-0 flex-1 bg-transparent font-display text-[30px] font-black leading-none tabular-nums text-[var(--gold-hi)] outline-none"
+                className="min-w-0 flex-1 rounded-md bg-transparent font-display text-[30px] font-black leading-none tabular-nums text-[var(--gold-hi)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-hi)]"
                 aria-describedby="redeem-validation"
               />
-              <button
+              <Button
                 type="button"
-                onClick={() => setAmount(String(Math.max(quote.minPoints, clampedMax)))}
-                className="rounded-lg border border-[rgba(200,146,42,0.35)] bg-[rgba(200,146,42,0.1)] px-2.5 py-1.5 font-display text-[9px] font-bold uppercase tracking-wider text-[var(--gold-hi)] active:scale-95"
+                variant="pixelGhost"
+                size="sm"
+                onClick={() => setAmount(String(Math.max(minPoints, clampedMax)))}
+                className="h-8 px-2.5 font-display text-[9px] uppercase tracking-wider text-[var(--gold-hi)]"
               >
                 Max
-              </button>
+              </Button>
             </div>
             <div className="mt-2 grid grid-cols-4 gap-1.5">
               {QUICK_PRESETS.map(preset => (
-                <button
+                <Button
                   key={preset}
                   type="button"
-                  onClick={() => setAmount(String(Math.min(preset, quote.maxPoints)))}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAmount(String(Math.min(preset, maxPoints)))}
                   className={cn(
-                    'rounded-lg border px-2 py-1.5 font-display text-[9px] font-bold tabular-nums transition-all active:scale-95',
+                    'h-8 rounded-lg border px-2 py-1.5 font-display text-[9px] font-bold tabular-nums transition-[background-color,border-color,color,transform]',
                     parsedAmount === preset
                       ? 'border-[var(--gold-hi)] bg-[var(--gold-hi)] text-[var(--bg-deep)]'
                       : 'border-[var(--border)] bg-[rgba(255,255,255,0.03)] text-[var(--text-2)]'
                   )}
                 >
                   {formatPoints(preset)}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -367,7 +214,7 @@ export default function RedeemClient() {
           <div className="relative z-[1]">
             <div className="mb-1 flex items-center justify-between text-[9px] uppercase tracking-wider text-[var(--text-3)]">
               <span>Mock daily limit</span>
-              <span>{formatPoints(quote.redeemedToday)} / {formatPoints(quote.dailyLimit)}</span>
+              <span>{formatPoints(redeemedToday)} / {formatPoints(dailyLimit)}</span>
             </div>
             <div className="stat-bar">
               <div
@@ -398,7 +245,7 @@ export default function RedeemClient() {
             disabled={!canRedeem}
             className="relative z-[1] w-full font-display text-[12px] font-black uppercase tracking-[0.16em]"
           >
-            {redeeming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+            {redeemMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
             Queue Mock Redeem
           </Button>
         </section>
@@ -409,44 +256,30 @@ export default function RedeemClient() {
             <p className="font-display text-[10px] uppercase tracking-wider text-[var(--text-3)]">
               Redeem History
             </p>
-            <button
+            <Button
               type="button"
-              onClick={() => setRefreshNonce(n => n + 1)}
-              className="ml-auto rounded-lg p-1.5 text-[var(--text-3)] active:scale-95"
+              variant="ghost"
+              size="sm"
+              onClick={() => { redeemMutation.reset(); void refetch() }}
+              className="ml-auto h-7 w-7 rounded-lg p-0 text-[var(--text-3)]"
               aria-label="Refresh redeem history"
             >
               <RefreshCw className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </div>
 
-          {quoteState === 'loading' ? (
+          {redeemLoading ? (
             <LoadingRows count={3} />
-          ) : history.length === 0 ? (
-            <div className="relic-frame flex flex-col items-center gap-2 py-8 text-center">
-              <Wallet className="h-8 w-8 text-[var(--text-dim)]" />
-              <p className="font-display text-[12px] text-[var(--text-3)]">No redeem requests yet</p>
-              <p className="text-[10px] text-[var(--text-dim)]">Queue a mock redeem to preview the flow.</p>
-            </div>
+          ) : (summary?.history.length ?? 0) === 0 ? (
+            <EmptyState
+              icon={<Wallet className="h-8 w-8" />}
+              title="No redeem requests yet"
+              description="Queue a mock redeem to preview the flow."
+            />
           ) : (
-            history.map(item => <HistoryRow key={item.id} item={item} />)
+            summary?.history.map(item => <HistoryRow key={item.id} item={item} />)
           )}
         </section>
-      </div>
-
-      <BottomNav />
-    </div>
-  )
-}
-
-function StatTile({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="relic-frame flex items-center gap-3 px-3 py-3">
-      <div className="relative z-[1] flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[rgba(4,16,33,0.7)]">
-        {icon}
-      </div>
-      <div className="relative z-[1] min-w-0">
-        <p className="text-[9px] uppercase tracking-wider text-[var(--text-3)]">{label}</p>
-        <p className="truncate font-display text-[15px] font-bold tabular-nums text-[var(--text-1)]">{value}</p>
       </div>
     </div>
   )
@@ -466,7 +299,7 @@ function MiniQuote({ label, value, accent = false }: { label: string; value: str
   )
 }
 
-function HistoryRow({ item }: { item: RedeemHistoryItem }) {
+function HistoryRow({ item }: { item: PointRedemptionDTO }) {
   const statusStyle = {
     pending: 'border-[rgba(224,128,32,0.35)] bg-[rgba(224,128,32,0.1)] text-[var(--warn)]',
     mocked: 'border-[rgba(160,216,255,0.28)] bg-[rgba(160,216,255,0.08)] text-[var(--ally)]',
@@ -481,15 +314,15 @@ function HistoryRow({ item }: { item: RedeemHistoryItem }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-display text-[12px] font-bold text-[var(--text-1)]">
-          {formatPoints(item.points)} pts {'->'} {formatCelo(item.celo)} CELO
+          {formatPoints(item.points)} pts {'->'} {formatCelo(Number(item.celoAmount))} CELO
         </p>
         <p className="text-[9px] text-[var(--text-3)]">
-          {new Date(item.createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          {formatShortDate(item.createdAt)}
         </p>
       </div>
-      <span className={cn('rounded-md border px-2 py-1 font-display text-[8px] font-bold uppercase tracking-wider', statusStyle)}>
+      <Badge className={cn('rounded-md px-2 py-1 font-display text-[8px] font-bold uppercase tracking-wider', statusStyle)}>
         {item.status}
-      </span>
+      </Badge>
     </div>
   )
 }

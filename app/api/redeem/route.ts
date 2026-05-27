@@ -3,17 +3,14 @@ import { prisma } from '@/src/lib/db'
 import { requireAuth } from '@/src/lib/api-auth'
 import { getZodMessage, redeemPointsBodySchema } from '@/src/lib/validation'
 import type { PointRedemptionDTO, RedeemSummaryDTO } from '@/src/lib/api-types'
-
-const MIN_REDEEM_POINTS = 100
-const CELO_MICRO_PER_POINT = 100 // mock rate: 1,000 pts = 0.1 CELO
-const RATE_LABEL = '1,000 pts = 0.1 CELO'
-
-function toCeloAmount(points: number): string {
-  const micro = points * CELO_MICRO_PER_POINT
-  const whole = Math.floor(micro / 1_000_000)
-  const fraction = String(micro % 1_000_000).padStart(6, '0').replace(/0+$/, '')
-  return fraction ? `${whole}.${fraction}` : String(whole)
-}
+import {
+  CELO_PER_POINT,
+  DAILY_REDEEM_LIMIT_POINTS,
+  MIN_REDEEM_POINTS,
+  REDEEM_RATE_LABEL,
+  pointsToCeloAmount,
+  pointsToTokenAmountWei,
+} from '@/src/lib/redeem-config'
 
 function toRedemptionDTO(row: {
   id: string
@@ -40,6 +37,9 @@ export async function GET(req: NextRequest) {
   if (error) return error
 
   try {
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+
     const [player, history] = await Promise.all([
       prisma.player.findUnique({
         where:  { id: auth.playerId },
@@ -54,11 +54,19 @@ export async function GET(req: NextRequest) {
 
     if (!player) return NextResponse.json({ error: 'Player not found' }, { status: 404 })
 
+    const redeemedToday = history
+      .filter(item => item.createdAt >= startOfToday && item.status !== 'failed')
+      .reduce((sum, item) => sum + item.points, 0)
+    const dailyRemaining = Math.max(0, DAILY_REDEEM_LIMIT_POINTS - redeemedToday)
+
     const dto: RedeemSummaryDTO = {
       totalPoints: player.totalPoints,
       minPoints:   MIN_REDEEM_POINTS,
-      maxPoints:   player.totalPoints,
-      rateLabel:   RATE_LABEL,
+      maxPoints:   Math.min(player.totalPoints, dailyRemaining),
+      rateLabel:   REDEEM_RATE_LABEL,
+      celoPerPoint: CELO_PER_POINT,
+      dailyLimit:  DAILY_REDEEM_LIMIT_POINTS,
+      redeemedToday,
       mock:        true,
       history:     history.map(toRedemptionDTO),
     }
@@ -82,9 +90,25 @@ export async function POST(req: NextRequest) {
     }
 
     const { points } = parsed.data
-    const celoAmount = toCeloAmount(points)
+    const celoAmount = pointsToCeloAmount(points)
+    const tokenAmountWei = pointsToTokenAmountWei(points)
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
 
     const [updated, redemption] = await prisma.$transaction(async tx => {
+      const todayRows = await tx.pointRedemption.findMany({
+        where: {
+          playerId: auth.playerId,
+          createdAt: { gte: startOfToday },
+          status: { not: 'failed' },
+        },
+        select: { points: true },
+      })
+      const redeemedToday = todayRows.reduce((sum, item) => sum + item.points, 0)
+      if (redeemedToday + points > DAILY_REDEEM_LIMIT_POINTS) {
+        throw new Error('DAILY_LIMIT_EXCEEDED')
+      }
+
       const update = await tx.player.updateMany({
         where: { id: auth.playerId, totalPoints: { gte: points } },
         data:  { totalPoints: { decrement: points } },
@@ -94,21 +118,24 @@ export async function POST(req: NextRequest) {
         throw new Error('INSUFFICIENT_POINTS')
       }
 
+      const player = await tx.player.findUnique({
+        where:  { id: auth.playerId },
+        select: { totalPoints: true, walletAddress: true },
+      })
+
+      if (!player) throw new Error('PLAYER_NOT_FOUND')
+
       const created = await tx.pointRedemption.create({
         data: {
           playerId: auth.playerId,
+          walletAddress: player.walletAddress,
           points,
           celoAmount,
+          tokenAmountWei,
           status: 'mocked',
         },
       })
 
-      const player = await tx.player.findUnique({
-        where:  { id: auth.playerId },
-        select: { totalPoints: true },
-      })
-
-      if (!player) throw new Error('PLAYER_NOT_FOUND')
       return [player, created] as const
     })
 
@@ -117,12 +144,15 @@ export async function POST(req: NextRequest) {
         totalPoints: updated.totalPoints,
         redemption:  toRedemptionDTO(redemption),
         mock:        true,
-        rateLabel:   RATE_LABEL,
+        rateLabel:   REDEEM_RATE_LABEL,
       },
     })
   } catch (err) {
     if (err instanceof Error && err.message === 'INSUFFICIENT_POINTS') {
       return NextResponse.json({ error: 'Not enough points to redeem.' }, { status: 400 })
+    }
+    if (err instanceof Error && err.message === 'DAILY_LIMIT_EXCEEDED') {
+      return NextResponse.json({ error: 'Daily mock redeem limit reached.' }, { status: 400 })
     }
 
     console.error('[POST /api/redeem]', err)

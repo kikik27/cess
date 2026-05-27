@@ -6,6 +6,7 @@
  * Use `getZodMessage(error)` to extract the first human-readable message.
  */
 import { z } from 'zod'
+import { MAX_REDEEM_POINTS, MIN_REDEEM_POINTS } from './redeem-config'
 
 // ─── Zod v4 error helper ──────────────────────────────────────────────────────
 
@@ -75,7 +76,11 @@ export const progressTaskBodySchema = z.object({
 // ─── Redeem ──────────────────────────────────────────────────────────────────
 
 export const redeemPointsBodySchema = z.object({
-  points: z.number().int().min(100, 'Minimum redeem is 100 points').max(1_000_000),
+  points: z
+    .number()
+    .int()
+    .min(MIN_REDEEM_POINTS, `Minimum redeem is ${MIN_REDEEM_POINTS} points`)
+    .max(MAX_REDEEM_POINTS),
 })
 
 // ─── Friends ─────────────────────────────────────────────────────────────────

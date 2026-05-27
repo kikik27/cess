@@ -104,20 +104,23 @@ export interface PointRedemptionDTO {
   createdAt:  string
 }
 
-export interface RedeemQuoteDTO {
-  points:     number
-  celoAmount: string
-  rateLabel:  string
-  mock:       boolean
-}
-
 export interface RedeemSummaryDTO {
   totalPoints: number
   minPoints:   number
   maxPoints:   number
   rateLabel:   string
+  celoPerPoint: number
+  dailyLimit:  number
+  redeemedToday: number
   mock:        boolean
   history:     PointRedemptionDTO[]
+}
+
+export interface RedeemResponseDTO {
+  totalPoints: number
+  redemption:  PointRedemptionDTO
+  mock:        boolean
+  rateLabel:   string
 }
 
 // ─── Friends ─────────────────────────────────────────────────────────────────

@@ -4,7 +4,8 @@ import Image from 'next/image'
 import { Trophy, Swords, Shield, Flame, Medal, Star, Users } from 'lucide-react'
 import { useLeaderboard } from '@/src/hooks/useLeaderboard'
 import { useWallet } from '@/src/providers/WalletProvider'
-import BottomNav from '@/src/ui/home/BottomNav'
+import { EmptyState } from '@/src/components/ui/EmptyState'
+import { LoadingRows } from '@/src/components/ui/LoadingState'
 import { cn } from '@/src/lib/utils'
 
 const TIER_COLORS: Record<string, string> = {
@@ -71,23 +72,14 @@ export default function LeaderboardClient() {
       {/* Player list */}
       <div className="relic-frame game-scroll flex flex-1 flex-col gap-0 overflow-y-auto overflow-x-hidden p-0">
         {isLoading ? (
-          Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-[60px] animate-pulse border-b border-[var(--border)] bg-[rgba(11,78,162,0.05)]" />
-          ))
+          <LoadingRows count={8} className="p-2" rowClassName="h-[60px]" />
         ) : leaderboard.length === 0 ? (
-          <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[rgba(200,146,42,0.25)] bg-[rgba(200,146,42,0.08)]">
-              <Users className="h-5 w-5 text-[var(--gold-hi)]" />
-            </div>
-            <div>
-              <p className="font-display text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--text-1)]">
-                No ranked players yet
-              </p>
-              <p className="mt-1 max-w-[220px] text-[10px] leading-relaxed text-[var(--text-3)]">
-                Earn points or keep a login streak to appear here.
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            icon={<Users className="h-8 w-8" />}
+            title="No ranked players yet"
+            description="Earn points or keep a login streak to appear here."
+            className="m-2 min-h-[260px] justify-center"
+          />
         ) : (
           leaderboard.map((p, i) => {
               const isMe      = p.playerId === player?.id
@@ -151,8 +143,6 @@ export default function LeaderboardClient() {
             })
         )}
       </div>
-
-      <BottomNav />
     </div>
   )
 }
