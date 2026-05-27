@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Users, Copy, Check, Gift, UserPlus, Crown, Ticket, ArrowDownLeft, ArrowUpRight, Loader2 } from 'lucide-react'
+import { Users, Copy, Check, Gift, UserPlus, Crown, Ticket, ArrowDownLeft, ArrowUpRight, Loader2, Info } from 'lucide-react'
 import { useFriends, useClaimReferralReward, useSubmitReferralCode } from '@/src/hooks/useFriends'
 import { useWallet } from '@/src/providers/WalletProvider'
 import { Button } from '@/src/components/ui/Button'
@@ -87,6 +87,12 @@ export default function FriendsClient() {
             </span>
           </div>
           <div className="divider-gold" />
+          <div className="flex items-start gap-2 rounded-xl border border-[rgba(200,146,42,0.24)] bg-[rgba(200,146,42,0.07)] px-3 py-2.5">
+            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[var(--gold-mid)]" />
+            <p className="text-[10px] leading-relaxed text-[var(--text-2)]">
+              Referral rewards are XP-only for now. In a future update, inviting friends will also unlock CETAS Point rewards.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col items-center rounded-xl border border-[var(--border)] bg-[rgba(4,16,33,0.6)] py-2.5">
               <span className="font-display text-[20px] font-bold text-[var(--gold-hi)]">{isInitialLoading ? '-' : pendingCount}</span>
