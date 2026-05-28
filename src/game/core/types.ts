@@ -106,6 +106,23 @@ export interface EnemyPreview {
   traitLabel: string
 }
 
+export interface BattleSummary {
+  win: boolean
+  goldEarned: number
+  hpLost: number
+  slotsGained: number
+  aliveCount: number
+  enemiesAlive: number
+}
+
+export interface StageRewardState {
+  status: 'idle' | 'pending' | 'confirmed' | 'failed' | 'skipped'
+  cetas: number
+  xp: number
+  txHashes: string[]
+  error: string | null
+}
+
 export type SelectedSource =
   | { src: 'board'; r: number; c: number }
   | { src: 'bench'; idx: number }
@@ -117,6 +134,7 @@ export interface GameState {
   gold: number
   phase: GamePhase
   maxBoardSlots: number
+  rerollsLeft: number
   board: BoardGrid
   bench: BenchSlots
   shop: ShopItem[]
@@ -125,6 +143,9 @@ export interface GameState {
   battleTimeMs: number
   speedUp: boolean
   enemyPreview: EnemyPreview[]
+  formationBoard: BoardGrid | null
+  lastBattleResult: BattleSummary | null
+  stageReward: StageRewardState
   /** Active arrow projectiles */
   projectiles: Projectile[]
   log: string[]

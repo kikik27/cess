@@ -48,10 +48,21 @@ export const ENEMY_STAR2_PROB  = 0.35     // probability enemy spawns as 2-star
 // ── Economy ───────────────────────────────────────────────────────────────────
 export const REROLL_COST       = 2        // gold cost to reroll shop
 export const SELL_REFUND       = 1        // gold refunded when selling a unit
-export const WIN_GOLD_BONUS    = 3        // extra gold for winning a round
+export const STARTING_GOLD     = 4        // tighter endless-mode opening economy
+export const MAX_GOLD          = 15       // prevents late-game runaway banking
+export const STAGE_INCOME      = 3        // baseline gold gained between stages
+export const WIN_GOLD_BONUS    = 2        // extra gold for winning a stage
+export const LOSS_GOLD_REWARD  = 1        // small retry reward after defeat
+export const REROLLS_PER_STAGE = 3        // limited shop refreshes per prep phase
+export const ENDLESS_STAGE_CETAS_REWARD = 50   // on-chain CETAS per cleared stage
+export const ENDLESS_STAGE_XP_REWARD    = 100  // off-chain account progression
+export const ENDLESS_STAGE_RANK_WEIGHT  = 1_000 // leaderboard prioritizes stage depth
+export const REFERRAL_XP_REWARD         = 100  // temporary off-chain invite reward
 
 // ── Board ─────────────────────────────────────────────────────────────────────
 export const BOARD_COLS        = 8
 export const BOARD_ROWS        = 4
 export const BENCH_SIZE        = 8
-export const MAX_ROUNDS        = 5
+export const INITIAL_STAGE     = 1
+export const INITIAL_BOARD_SLOTS = 3
+export const MAX_BOARD_SLOTS   = 8        // mobile-readable cap for active troops

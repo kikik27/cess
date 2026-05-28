@@ -1,26 +1,51 @@
 'use client'
 
 import { create } from 'zustand'
-import type { GameState, SelectedSource, ShopItem } from '../core/types'
+import type { GameState, SelectedSource } from '../core/types'
 import { emptyBoard, getBoardUnitCount, placeOnBoard, placeOnBench } from '../systems/boardSystem'
-import { generateShop, checkMerge, buyUnit as buyUnitFn } from '../systems/shopSystem'
+import { generateShop, checkFormationMerge, buyUnit as buyUnitFn } from '../systems/shopSystem'
 import { generateEnemies, runBattleStep, evaluateBattleEnd, generateEnemyPreview } from '../systems/combatSystem'
+import { getDefById, makeUnit } from '../core/unitFactory'
 import {
   BATTLE_LIMIT_MS,
+  INITIAL_STAGE,
+  MAX_GOLD,
+  MAX_BOARD_SLOTS,
+  INITIAL_BOARD_SLOTS,
   SPEED_UP_FACTOR,
-  BATTLE_TICK_CAP,
-  MAX_ROUNDS,
+  STARTING_GOLD,
   REROLL_COST,
+  REROLLS_PER_STAGE,
+  ENDLESS_STAGE_CETAS_REWARD,
+  ENDLESS_STAGE_XP_REWARD,
 } from '../constants'
+import type { BoardGrid, BenchSlots, StageRewardState, Unit } from '../core/types'
+import type { PlayerGameProgressDTO, SavedGameUnitDTO } from '@/src/lib/api-types'
+import { playerKeys } from '@/src/hooks/usePlayer'
+import { queryClient } from '@/src/lib/queryClient'
 
 const MAX_LOG = 5
+
+const IDLE_STAGE_REWARD: StageRewardState = {
+  status: 'idle',
+  cetas: 0,
+  xp: 0,
+  txHashes: [],
+  error: null,
+}
 
 function addLog(logs: string[], msg: string): string[] {
   const next = [...logs, msg]
   return next.length > MAX_LOG ? next.slice(next.length - MAX_LOG) : next
 }
 
+function addLogs(logs: string[], messages: string[]): string[] {
+  return messages.reduce((acc, msg) => addLog(acc, msg), logs)
+}
+
 interface GameActions {
+  setSavedStage: (stage: number) => void
+  setSavedProgress: (progress: PlayerGameProgressDTO | null) => void
   // Prep phase
   selectUnit: (sel: SelectedSource) => void
   clickBoardCell: (row: number, col: number) => void
@@ -40,13 +65,13 @@ interface GameActions {
 export type GameStore = GameState & GameActions
 
 function initialState(): GameState {
-  const initialMaxSlots = 3
   return {
-    round: 1,
+    round: INITIAL_STAGE,
     hp: 100,
-    gold: 10,
+    gold: STARTING_GOLD,
     phase: 'prep',
-    maxBoardSlots: initialMaxSlots,
+    maxBoardSlots: INITIAL_BOARD_SLOTS,
+    rerollsLeft: REROLLS_PER_STAGE,
     board: emptyBoard(),
     bench: Array(8).fill(null),
     shop: generateShop(),
@@ -54,14 +79,172 @@ function initialState(): GameState {
     battleRunning: false,
     battleTimeMs: 0,
     speedUp: false,
-    enemyPreview: generateEnemyPreview(1, initialMaxSlots),
+    enemyPreview: generateEnemyPreview(INITIAL_STAGE, INITIAL_BOARD_SLOTS),
+    formationBoard: null,
+    lastBattleResult: null,
+    stageReward: IDLE_STAGE_REWARD,
     projectiles: [],
-    log: ['Welcome! Scout the enemy above, set your formation, then attack!'],
+    log: ['Endless mode. Scout the stage, set your formation, then attack!'],
   }
+}
+
+function cloneUnit(unit: Unit): Unit {
+  return {
+    ...unit,
+    body: unit.body.map(row => [...row]),
+    floats: unit.floats.map(f => ({ ...f })),
+  }
+}
+
+function recallUnit(unit: Unit): Unit {
+  return {
+    ...cloneUnit(unit),
+    curHp: unit.maxHp,
+    dead: false,
+    anim: 0,
+    animState: 'idle',
+    animFrame: 0,
+    animElapsed: 0,
+    animDone: false,
+    attackTimer: 0,
+    moveTimer: 0,
+    floats: [],
+    shake: 0,
+    facingLeft: unit.enemy,
+  }
+}
+
+function snapshotFormation(board: BoardGrid): BoardGrid {
+  return board.map((row, r) =>
+    row.map(unit => {
+      if (!unit || unit.enemy || r < 4) return null
+      return recallUnit(unit)
+    })
+  )
+}
+
+function recallBench(bench: BenchSlots): BenchSlots {
+  return bench.map(unit => unit ? recallUnit(unit) : null)
+}
+
+function serializeUnit(unit: Unit | null): SavedGameUnitDTO | null {
+  if (!unit || unit.enemy) return null
+  return {
+    id: unit.id,
+    stars: unit.stars as 1 | 2 | 3,
+  }
+}
+
+function serializeBoard(board: BoardGrid): PlayerGameProgressDTO['board'] {
+  return board.map((row, r) =>
+    row.map(unit => r < 4 ? null : serializeUnit(unit))
+  )
+}
+
+function serializeBench(bench: BenchSlots): PlayerGameProgressDTO['bench'] {
+  return bench.map(serializeUnit)
+}
+
+function deserializeUnit(saved: SavedGameUnitDTO | null): Unit | null {
+  if (!saved) return null
+  try {
+    return recallUnit(makeUnit(getDefById(saved.id), saved.stars, false))
+  } catch {
+    return null
+  }
+}
+
+function deserializeBoard(saved: PlayerGameProgressDTO['board']): BoardGrid {
+  const board = emptyBoard()
+  saved.forEach((row, r) => {
+    if (r < 4 || r >= board.length) return
+    row.forEach((unit, c) => {
+      if (c < board[r].length) board[r][c] = deserializeUnit(unit)
+    })
+  })
+  return board
+}
+
+function deserializeBench(saved: PlayerGameProgressDTO['bench']): BenchSlots {
+  return Array.from({ length: 8 }, (_, i) => deserializeUnit(saved[i] ?? null))
+}
+
+function persistGameProgress(state: {
+  round: number
+  hp: number
+  gold: number
+  maxBoardSlots: number
+  rerollsLeft: number
+  board: BoardGrid
+  bench: BenchSlots
+}, stageOverride?: number, onSaved?: (data: Record<string, unknown>) => void): void {
+  fetch('/api/player/endless', {
+    method:      'POST',
+    headers:     { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body:        JSON.stringify({
+      stage: stageOverride ?? state.round,
+      hp: state.hp,
+      gold: state.gold,
+      maxBoardSlots: state.maxBoardSlots,
+      rerollsLeft: state.rerollsLeft,
+      board: serializeBoard(state.board),
+      bench: serializeBench(state.bench),
+    }),
+  })
+    .then(async res => {
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.data) return
+      onSaved?.(json.data as Record<string, unknown>)
+      queryClient.setQueryData(playerKeys.me, (current: unknown) =>
+        current && typeof current === 'object'
+          ? { ...current, ...json.data }
+          : current
+      )
+      void queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      void queryClient.invalidateQueries()
+    })
+    .catch(() => {})
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...initialState(),
+
+  setSavedStage(stage) {
+    if (!Number.isFinite(stage) || stage < 1) return
+    const { phase, battleRunning, board, bench } = get()
+    if (phase !== 'prep' || battleRunning) return
+    if (getBoardUnitCount(board) > 0 || bench.some(Boolean)) return
+
+    const safeStage = Math.floor(stage)
+    set(s => ({
+      round: safeStage,
+      enemyPreview: generateEnemyPreview(safeStage, s.maxBoardSlots),
+      log: [`Endless mode. Continue from Stage ${safeStage}.`],
+    }))
+  },
+
+  setSavedProgress(progress) {
+    if (!progress || !Number.isFinite(progress.stage) || progress.stage < 1) return
+    const { phase, battleRunning, board, bench } = get()
+    if (phase !== 'prep' || battleRunning) return
+    if (getBoardUnitCount(board) > 0 || bench.some(Boolean)) return
+
+    const safeStage = Math.floor(progress.stage)
+    const maxBoardSlots = Math.max(1, Math.min(MAX_BOARD_SLOTS, Math.floor(progress.maxBoardSlots)))
+    set({
+      round: safeStage,
+      hp: Math.max(0, Math.min(100, Math.floor(progress.hp))),
+      gold: Math.max(0, Math.min(MAX_GOLD, Math.floor(progress.gold))),
+      maxBoardSlots,
+      rerollsLeft: Math.max(0, Math.min(REROLLS_PER_STAGE, Math.floor(progress.rerollsLeft ?? REROLLS_PER_STAGE))),
+      board: deserializeBoard(progress.board),
+      bench: deserializeBench(progress.bench),
+      enemyPreview: generateEnemyPreview(safeStage, maxBoardSlots),
+      log: [`Endless mode. Continue from Stage ${safeStage}.`],
+    })
+  },
 
   selectUnit(sel) {
     set({ selected: sel })
@@ -80,16 +263,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (selected) {
       const result = placeOnBoard(board, bench, selected, row, col, maxBoardSlots)
+      const merged = result.error
+        ? { board: result.board, bench: result.bench, mergeLog: [] }
+        : checkFormationMerge(result.board, result.bench)
       set(s => ({
-        board: result.board,
-        bench: result.bench,
+        board: merged.board,
+        bench: merged.bench,
         selected: result.selected,
-        log: result.error
-          ? addLog(s.log, result.error)
-          : result.log
-          ? addLog(s.log, result.log)
-          : s.log,
+        log: addLogs(
+          result.error
+            ? addLog(s.log, result.error)
+            : result.log
+            ? addLog(s.log, result.log)
+            : s.log,
+          merged.mergeLog,
+        ),
       }))
+      persistGameProgress(get())
     } else {
       const unit = board[row][col]
       if (unit && !unit.enemy) {
@@ -104,14 +294,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (selected) {
       const result = placeOnBench(board, bench, selected, idx)
-      set({ board: result.board, bench: result.bench, selected: result.selected })
+      const merged = checkFormationMerge(result.board, result.bench)
+      set(s => ({
+        board: merged.board,
+        bench: merged.bench,
+        selected: result.selected,
+        log: addLogs(s.log, merged.mergeLog),
+      }))
+      persistGameProgress(get())
     } else {
       if (bench[idx]) set({ selected: { src: 'bench', idx } })
     }
   },
 
   buyUnit(shopIdx) {
-    const { shop, bench, gold } = get()
+    const { phase, shop, board, bench, gold } = get()
+    if (phase !== 'prep') return
     const item = shop[shopIdx]
     if (!item) return
 
@@ -121,35 +319,43 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return
     }
 
-    const { bench: newBench, mergeLog } = checkMerge(result.bench)
+    const { board: newBoard, bench: newBench, mergeLog } = checkFormationMerge(board, result.bench)
     const updatedShop = shop.map((s, i) => i === shopIdx ? result.shopItem : s)
 
     set(s => ({
       shop: updatedShop,
+      board: newBoard,
       bench: newBench,
       gold: result.gold,
-      log: mergeLog.reduce(
-        (acc, m) => addLog(acc, m),
-        addLog(s.log, result.log),
-      ),
+      selected: mergeLog.length ? null : s.selected,
+      log: addLogs(addLog(s.log, result.log), mergeLog),
     }))
+    persistGameProgress(get())
   },
 
   reroll() {
-    const { gold } = get()
+    const { phase, gold, rerollsLeft } = get()
+    if (phase !== 'prep') return
+    if (rerollsLeft <= 0) {
+      set(s => ({ log: addLog(s.log, 'No shop refreshes left this stage.') }))
+      return
+    }
     if (gold < REROLL_COST) {
       set(s => ({ log: addLog(s.log, `Need ${REROLL_COST} gold to reroll!`) }))
       return
     }
     set(s => ({
       gold: s.gold - REROLL_COST,
+      rerollsLeft: Math.max(0, s.rerollsLeft - 1),
       shop: generateShop(),
-      log: addLog(s.log, 'Shop refreshed!'),
+      log: addLog(s.log, `Shop refreshed! ${Math.max(0, s.rerollsLeft - 1)} left.`),
     }))
+    persistGameProgress(get())
   },
 
   sellSelected() {
-    const { selected, board, bench } = get()
+    const { phase, selected, board, bench } = get()
+    if (phase !== 'prep') return
     if (!selected) return
 
     const b = board.map(row => [...row])
@@ -172,10 +378,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set(s => ({
       board: b,
       bench: bch,
-      gold: Math.min(s.gold + earn, 20),
+      gold: Math.min(s.gold + earn, MAX_GOLD),
       selected: null,
       log: addLog(s.log, `Sold ${unit!.name} +${earn}g`),
     }))
+    persistGameProgress(get())
   },
 
   startBattle() {
@@ -186,11 +393,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return
     }
 
+    const formationBoard = snapshotFormation(board)
     const boardWithEnemies = generateEnemies(board, round, maxBoardSlots)
     set(s => ({
       phase: 'battle',
       selected: null,
       board: boardWithEnemies,
+      formationBoard,
+      lastBattleResult: null,
+      stageReward: IDLE_STAGE_REWARD,
       battleRunning: true,
       battleTimeMs: 0,
       speedUp: false,
@@ -238,109 +449,107 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   endBattle() {
-    const { board, round, maxBoardSlots, hp, gold } = get()
+    const { board, bench, round, maxBoardSlots, hp, gold, formationBoard } = get()
     const result = evaluateBattleEnd(board, round)
-    // Slot +1 always (win or lose) — capped at 12
-    const newSlots = Math.min(maxBoardSlots + 1, 12)
+    const newSlots = result.win ? Math.min(maxBoardSlots + result.slotsGained, MAX_BOARD_SLOTS) : maxBoardSlots
+    const resolvedResult = { ...result, slotsGained: newSlots > maxBoardSlots ? 1 : 0 }
+    const recalledBoard = snapshotFormation(formationBoard ?? board)
+    const recalledBench = recallBench(bench)
+    const newGold = Math.min(gold + result.goldEarned, MAX_GOLD)
 
     if (result.win) {
-      const newGold = Math.min(gold + result.goldEarned, 20)
+      const nextStage = round + 1
       set(s => ({
         gold: newGold,
         maxBoardSlots: newSlots,
+        board: recalledBoard,
+        bench: recalledBench,
+        formationBoard: null,
+        lastBattleResult: resolvedResult,
+        stageReward: {
+          status: 'pending',
+          cetas: ENDLESS_STAGE_CETAS_REWARD,
+          xp: ENDLESS_STAGE_XP_REWARD,
+          txHashes: [],
+          error: null,
+        },
         battleRunning: false,
-        log: addLog(s.log, `Round ${round} VICTORY! +${result.goldEarned}g, slots up to ${newSlots}`),
+        log: addLog(s.log, `Stage ${round} VICTORY! +${result.goldEarned}g, slots up to ${newSlots}`),
       }))
+      persistGameProgress(get(), nextStage, (data) => {
+        const reward = data.onchainReward as
+          | { status?: string; txHashes?: string[]; error?: string | null }
+          | undefined
+        const pointsAwarded = typeof data.pointsAwarded === 'number' ? data.pointsAwarded : 0
+        const experienceAwarded = typeof data.experienceAwarded === 'number' ? data.experienceAwarded : 0
+        const failed = reward?.status === 'failed'
+        set(s => ({
+          stageReward: {
+            status: failed ? 'failed' : pointsAwarded > 0 ? 'confirmed' : 'skipped',
+            cetas: pointsAwarded,
+            xp: experienceAwarded,
+            txHashes: reward?.txHashes ?? [],
+            error: failed ? reward?.error ?? 'On-chain reward failed' : null,
+          },
+          log: addLog(
+            s.log,
+            failed
+              ? `CETAS reward failed: ${reward?.error ?? 'unknown error'}`
+              : pointsAwarded > 0
+              ? `Reward confirmed: +${pointsAwarded} CETAS, +${experienceAwarded} XP`
+              : `Stage saved. No CETAS reward issued.`,
+          ),
+        }))
+      })
     } else {
       const newHp = Math.max(0, hp - result.hpLost)
       set(s => ({
         hp: newHp,
+        gold: newGold,
         maxBoardSlots: newSlots,
+        board: recalledBoard,
+        bench: recalledBench,
+        formationBoard: null,
+        lastBattleResult: resolvedResult,
+        stageReward: IDLE_STAGE_REWARD,
         battleRunning: false,
-        log: addLog(s.log, `Round ${round} DEFEAT! -${result.hpLost} HP, slots up to ${newSlots}`),
+        log: addLog(s.log, `Stage ${round} DEFEAT! -${result.hpLost} HP, +${result.goldEarned}g, retry stage ${round}`),
       }))
+      persistGameProgress(get())
     }
   },
 
   nextRound() {
-    const { round, hp, gold, board, maxBoardSlots } = get()
-    if (hp <= 0 || round >= MAX_ROUNDS) {
+    const { round, hp, maxBoardSlots, lastBattleResult } = get()
+    if (hp <= 0) {
       get().resetGame()
       return
     }
 
-    // Clear enemy rows.
-    // Ally units: dead ones revive to full HP (temporary death per round),
-    // surviving ones heal 25% of max HP.
-    const newBoard = board.map((row, r) =>
-      row.map((cell) => {
-        if (r < 4) return null          // clear enemy zone (rows 0–3)
-        if (!cell) return null
-        if (cell.enemy) return null
-
-        const healed = cell.dead
-          // Revive: full HP restore
-          ? cell.maxHp
-          // Survive: +25% HP
-          : Math.min(cell.maxHp, cell.curHp + Math.floor(cell.maxHp * 0.25))
-
-        return {
-          ...cell,
-          curHp: healed,
-          dead: false,                  // revive
-          anim: 0,
-          animState: 'idle' as const,
-          animFrame: 0,
-          animElapsed: 0,
-          animDone: false,
-          attackTimer: 0,
-          moveTimer: 0,
-          floats: [],
-          facingLeft: false,            // allies always reset facing right
-        }
-      })
-    )
-
-    // Also revive dead units on bench
-    const newBench = get().bench.map(u => {
-      if (!u || !u.dead) return u
-      return {
-        ...u,
-        curHp: u.maxHp,
-        dead: false,
-        animState: 'idle' as const,
-        animFrame: 0,
-        animElapsed: 0,
-        animDone: false,
-        attackTimer: 0,
-        moveTimer: 0,
-        floats: [],
-        facingLeft: false,
-      }
-    })
-
-    const nextRound = round + 1
-    const newGold = Math.min(gold + 5, 20)
+    const nextRound = lastBattleResult?.win ? round + 1 : round
     const newEnemyPreview = generateEnemyPreview(nextRound, maxBoardSlots)
 
     set(s => ({
       round: nextRound,
       phase: 'prep',
-      gold: newGold,
-      board: newBoard,
-      bench: newBench,
       shop: generateShop(),
+      rerollsLeft: REROLLS_PER_STAGE,
       selected: null,
       battleRunning: false,
       battleTimeMs: 0,
       speedUp: false,
       projectiles: [],
       enemyPreview: newEnemyPreview,
-      log: addLog(s.log, `Round ${nextRound}. +5g Fallen units restored. Slots: ${maxBoardSlots}`),
+      lastBattleResult: null,
+      log: addLog(s.log, lastBattleResult?.win
+        ? `Stage ${nextRound}. Scout, shop, and push forward. Slots: ${maxBoardSlots}`
+        : `Retry Stage ${nextRound}. Shop refreshed. Slots: ${maxBoardSlots}`),
     }))
+    persistGameProgress(get())
   },
 
   resetGame() {
     set(initialState())
+    persistGameProgress(get())
   },
 }))

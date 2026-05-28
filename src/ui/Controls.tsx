@@ -10,6 +10,7 @@ interface ControlsProps {
   battleRunning: boolean
   secondsLeft: number
   speedUp: boolean
+  rerollsLeft: number
   onReroll: () => void
   onSell: () => void
   onBattle: () => void
@@ -18,24 +19,25 @@ interface ControlsProps {
 const BATTLE_SECONDS = BATTLE_LIMIT_MS / 1000
 
 export default function Controls({
-  phase, hasSelected, secondsLeft, speedUp, onReroll, onSell, onBattle,
+  phase, hasSelected, secondsLeft, speedUp, rerollsLeft, onReroll, onSell, onBattle,
 }: ControlsProps) {
 
   /* ── Prep phase ── */
   if (phase !== 'battle') {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         <div className="flex gap-2">
           {/* Reroll */}
           <Button
             onClick={onReroll}
             variant="pixelBlue"
             size="md"
-            className="flex-1 text-[12px]"
+            disabled={rerollsLeft <= 0}
+            className="min-h-[44px] flex-1 text-[11px]"
           >
             <Dices className="h-4 w-4" />
             Reroll
-            <span className="ml-0.5 text-[10px] opacity-60">−{REROLL_COST}g</span>
+            <span className="ml-0.5 text-[10px] opacity-60">−{REROLL_COST}g · {rerollsLeft}</span>
           </Button>
 
           {/* Sell — only when unit selected */}
@@ -44,7 +46,7 @@ export default function Controls({
               onClick={onSell}
               variant="pixelDanger"
               size="md"
-              className="w-12 px-0"
+              className="min-h-[44px] w-12 px-0"
               aria-label="Sell selected unit"
             >
               <Coins className="h-4 w-4" />
@@ -56,15 +58,15 @@ export default function Controls({
             onClick={onBattle}
             variant="pixelGold"
             size="md"
-            className="flex-1 text-[13px] font-black"
+            className="min-h-[44px] flex-1 text-[12px] font-black"
           >
             <Swords className="h-4 w-4" />
             BATTLE!
           </Button>
         </div>
 
-        <p className="text-center text-[10px] text-[var(--text-3)]">
-          Tap unit → tap tile to place · Tap selected unit to sell
+        <p className="hidden text-center text-[10px] text-[var(--text-3)] min-[380px]:block">
+          {rerollsLeft} shop refresh{rerollsLeft === 1 ? '' : 'es'} left. Units recall after battle.
         </p>
       </div>
     )

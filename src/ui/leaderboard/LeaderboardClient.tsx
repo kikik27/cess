@@ -1,24 +1,12 @@
 'use client'
 
 import Image from 'next/image'
-import Link from 'next/link'
-import { Trophy, Swords, Shield, Flame, Medal, Star } from 'lucide-react'
-import { Button } from '@/src/components/ui/Button'
-import { useHomeStore } from '@/src/lib/homeStore'
-import BottomNav from '@/src/ui/home/BottomNav'
+import { Trophy, Swords, Shield, Flame, Medal, Star, Users } from 'lucide-react'
+import { useLeaderboard } from '@/src/hooks/useLeaderboard'
+import { useWallet } from '@/src/providers/WalletProvider'
+import { EmptyState } from '@/src/components/ui/EmptyState'
+import { LoadingRows } from '@/src/components/ui/LoadingState'
 import { cn } from '@/src/lib/utils'
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const PLAYERS = [
-  { name: 'AetherKnight',   score: 4280, wins: 38, streak: 9, tier: 'Mythic',      avatarIdx: 3  },
-  { name: 'LunaTactician',  score: 4015, wins: 34, streak: 7, tier: 'Grandmaster', avatarIdx: 7  },
-  { name: 'RavenBlade',     score: 3890, wins: 32, streak: 6, tier: 'Grandmaster', avatarIdx: 12 },
-  { name: 'Zaky',           score: 3510, wins: 27, streak: 4, tier: 'Diamond',     avatarIdx: 1  },
-  { name: 'CrimsonWolf',    score: 3325, wins: 24, streak: 3, tier: 'Diamond',     avatarIdx: 18 },
-  { name: 'SilentMonk',     score: 3190, wins: 23, streak: 2, tier: 'Platinum',    avatarIdx: 22 },
-  { name: 'IronVeil',       score: 2980, wins: 20, streak: 1, tier: 'Platinum',    avatarIdx: 9  },
-  { name: 'StormCaller',    score: 2740, wins: 17, streak: 0, tier: 'Gold',        avatarIdx: 15 },
-]
 
 const TIER_COLORS: Record<string, string> = {
   Mythic:      'text-[#ff80ff] border-[rgba(255,128,255,0.3)] bg-[rgba(255,128,255,0.08)]',
@@ -26,59 +14,52 @@ const TIER_COLORS: Record<string, string> = {
   Diamond:     'text-[#a0d8ff] border-[rgba(160,216,255,0.3)] bg-[rgba(160,216,255,0.08)]',
   Platinum:    'text-[#c0e0c0] border-[rgba(192,224,192,0.3)] bg-[rgba(192,224,192,0.06)]',
   Gold:        'text-[var(--warn)] border-[rgba(224,128,32,0.3)] bg-[rgba(224,128,32,0.08)]',
+  Bronze:      'text-[#c8906a] border-[rgba(200,144,106,0.3)] bg-[rgba(200,144,106,0.06)]',
 }
 
 const RANK_STYLES = [
-  'text-[var(--gold-hi)] drop-shadow-[0_0_8px_rgba(245,216,120,0.8)]',  // #1
-  'text-[#c0c8d8] drop-shadow-[0_0_6px_rgba(192,200,216,0.6)]',          // #2
-  'text-[#c8906a] drop-shadow-[0_0_6px_rgba(200,144,106,0.6)]',          // #3
+  'text-[var(--gold-hi)] drop-shadow-[0_0_8px_rgba(245,216,120,0.8)]',
+  'text-[#c0c8d8] drop-shadow-[0_0_6px_rgba(192,200,216,0.6)]',
+  'text-[#c8906a] drop-shadow-[0_0_6px_rgba(200,144,106,0.6)]',
 ]
 
-// ── Component ─────────────────────────────────────────────────────────────────
 export default function LeaderboardClient() {
-  const { playerName, totalPoints, avatarIdx } = useHomeStore()
+  const { player } = useWallet()
+  const { data, isLoading, isFetching } = useLeaderboard()
 
-  // Inject the current player into the list (sorted by score)
-  const allPlayers = [...PLAYERS, { name: playerName, score: totalPoints, wins: 0, streak: 0, tier: 'Bronze', avatarIdx }]
-    .sort((a, b) => b.score - a.score)
-
-  const myRank = allPlayers.findIndex(p => p.name === playerName) + 1
+  const leaderboard = data?.leaderboard ?? []
+  const myRank      = data?.myRank ?? null
+  const bestStage   = leaderboard.reduce((best, p) => Math.max(best, p.bestStage), 0)
 
   return (
     <div className="flex h-full flex-col gap-3">
-      {/* ── Page header ── */}
+      {/* Header */}
       <div className="flex flex-shrink-0 items-center gap-3">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center
-                        rounded-xl border border-[rgba(200,146,42,0.3)] bg-[rgba(200,146,42,0.08)]">
-          <Image
-            src="/assets/ui/leaderboard.png"
-            alt=""
-            width={18}
-            height={18}
-            loading="eager"
-            unoptimized
-            className="pixel object-contain"
-            aria-hidden
-          />
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-[rgba(200,146,42,0.3)] bg-[rgba(200,146,42,0.08)]">
+          <Image src="/assets/ui/leaderboard.png" alt="" width={18} height={18} loading="eager" unoptimized className="pixel object-contain" aria-hidden />
         </div>
         <div>
           <h1 className="font-display text-[15px] font-bold uppercase tracking-[0.15em] text-[var(--gold-hi)]">
             Leaderboard
           </h1>
-          <p className="text-[10px] text-[var(--text-3)]">Hall of Champions</p>
+          <p className="text-[10px] text-[var(--text-3)]">
+            {isFetching && !isLoading ? 'Syncing ranks...' : 'Hall of Champions'}
+          </p>
         </div>
         <div className="ml-auto text-right">
-          <p className="font-display text-[13px] font-bold text-[var(--gold-hi)]">#{myRank}</p>
+          <p className="font-display text-[13px] font-bold text-[var(--gold-hi)]">
+            {myRank ? `#${myRank}` : '—'}
+          </p>
           <p className="text-[9px] uppercase tracking-wider text-[var(--text-3)]">your rank</p>
         </div>
       </div>
 
-      {/* ── Stats row — fixed ── */}
+      {/* Stats row */}
       <div className="grid flex-shrink-0 grid-cols-3 gap-2">
         {[
-          { icon: <Trophy className="h-4 w-4 text-[var(--gold-hi)]" />,  label: 'Top Wins',    value: '38' },
-          { icon: <Swords className="h-4 w-4 text-[var(--enemy)]" />,   label: 'Best Streak', value: '9'  },
-          { icon: <Shield className="h-4 w-4 text-[var(--ally)]" />,    label: 'Defenses',    value: '127'},
+          { icon: <Trophy className="h-4 w-4 text-[var(--gold-hi)]" />, label: 'Top Score', value: leaderboard[0]?.score.toLocaleString() ?? '-' },
+          { icon: <Swords className="h-4 w-4 text-[var(--enemy)]" />,  label: 'Best Stage', value: bestStage ? bestStage.toString() : '-' },
+          { icon: <Shield className="h-4 w-4 text-[var(--ally)]" />,   label: 'Players',     value: leaderboard.length.toString() },
         ].map(s => (
           <div key={s.label} className="relic-frame flex flex-col items-center gap-1 px-2 py-3">
             {s.icon}
@@ -88,71 +69,82 @@ export default function LeaderboardClient() {
         ))}
       </div>
 
-      {/* ── Scrollable player list ── */}
+      {/* Player list */}
       <div className="relic-frame game-scroll flex flex-1 flex-col gap-0 overflow-y-auto overflow-x-hidden p-0">
-        {allPlayers.map((p, i) => {
-          const isMe      = p.name === playerName
-          const rankStyle = RANK_STYLES[i] ?? 'text-[var(--text-3)]'
-          const tierStyle = TIER_COLORS[p.tier] ?? 'text-[var(--text-3)] border-[var(--border)] bg-transparent'
-          const pad       = String(p.avatarIdx).padStart(2, '0')
+        {isLoading ? (
+          <LoadingRows count={8} className="p-2" rowClassName="h-[60px]" />
+        ) : leaderboard.length === 0 ? (
+          <EmptyState
+            icon={<Users className="h-8 w-8" />}
+            title="No ranked players yet"
+            description="Clear stages and gain XP to appear here."
+            className="m-2 min-h-[260px] justify-center"
+          />
+        ) : (
+          leaderboard.map((p, i) => {
+              const isMe      = p.playerId === player?.id
+              const rankStyle = RANK_STYLES[i] ?? 'text-[var(--text-3)]'
+              const tierStyle = TIER_COLORS[p.tier] ?? 'text-[var(--text-3)] border-[var(--border)] bg-transparent'
+              const pad       = String(p.avatarIdx).padStart(2, '0')
 
-          return (
-            <div
-              key={`${p.name}-${i}`}
-              className={cn(
-                'flex items-center gap-3 px-4 py-3 transition-colors',
-                'border-b border-[var(--border)] last:border-b-0',
-                isMe ? 'bg-[rgba(200,146,42,0.07)]' : 'hover:bg-white/[0.02]'
-              )}
-            >
-              <span className={cn('w-7 flex-shrink-0 text-center font-display text-[14px] font-bold', rankStyle)}>
-                {i === 0 && <Trophy className="h-4 w-4 inline text-[var(--gold-hi)]" />}
-                {i === 1 && <Medal  className="h-4 w-4 inline text-[#c0c8d8]" />}
-                {i === 2 && <Star   className="h-4 w-4 inline text-[#c8906a]" />}
-                {i >= 3  && `${i + 1}`}
-              </span>
-              <Image
-                src={`/assets/ui/avatars/avatar-${pad}.png`}
-                alt=""
-                aria-hidden
-                width={32}
-                height={32}
-                unoptimized
-                className="pixel flex-shrink-0 rounded-lg border border-[var(--border)]"
-              />
-              <div className="min-w-0 flex-1">
-                <p className={cn(
-                  'truncate font-display text-[12px] font-bold uppercase tracking-wider',
-                  isMe ? 'text-[var(--gold-hi)]' : 'text-[var(--text-1)]'
-                )}>
-                  {p.name}{isMe && ' (You)'}
-                </p>
-                <div className="mt-0.5 flex items-center gap-1.5">
-                  <span className={cn(
-                    'rounded-md border px-1.5 py-0.5 font-display text-[8px] font-bold uppercase tracking-wider',
-                    tierStyle
-                  )}>
-                    {p.tier}
-                  </span>
-                  {p.streak > 0 && (
-                    <span className="flex items-center gap-0.5 text-[9px] text-[var(--warn)]">
-                      <Flame className="h-2.5 w-2.5" />{p.streak}
-                    </span>
+              return (
+                <div
+                  key={p.playerId}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-3 transition-colors',
+                    'border-b border-[var(--border)] last:border-b-0',
+                    isMe ? 'bg-[rgba(200,146,42,0.07)]' : 'hover:bg-white/[0.02]'
                   )}
+                >
+                  <span className={cn('w-7 flex-shrink-0 text-center font-display text-[14px] font-bold', rankStyle)}>
+                    {i === 0 && <Trophy className="h-4 w-4 inline text-[var(--gold-hi)]" />}
+                    {i === 1 && <Medal  className="h-4 w-4 inline text-[#c0c8d8]" />}
+                    {i === 2 && <Star   className="h-4 w-4 inline text-[#c8906a]" />}
+                    {i >= 3  && `${i + 1}`}
+                  </span>
+                  <Image
+                    src={`/assets/ui/avatars/avatar-${pad}.png`}
+                    alt="" aria-hidden
+                    width={32} height={32}
+                    unoptimized
+                    className="pixel flex-shrink-0 rounded-lg border border-[var(--border)]"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className={cn(
+                      'truncate font-display text-[12px] font-bold uppercase tracking-wider',
+                      isMe ? 'text-[var(--gold-hi)]' : 'text-[var(--text-1)]'
+                    )}>
+                      {p.name}{isMe && ' (You)'}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <span className={cn('rounded-md border px-1.5 py-0.5 font-display text-[8px] font-bold uppercase tracking-wider', tierStyle)}>
+                        {p.tier}
+                      </span>
+                      {p.streak > 0 && (
+                        <span className="flex items-center gap-0.5 text-[9px] text-[var(--warn)]">
+                          <Flame className="h-2.5 w-2.5" />{p.streak}
+                        </span>
+                      )}
+                      {p.bestStage > 1 && (
+                        <span className="text-[9px] font-semibold text-[var(--ally)]">
+                          Stage {p.bestStage}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="font-display text-[13px] font-bold tabular-nums text-[var(--gold-hi)]">
+                      {p.score.toLocaleString()}
+                    </p>
+                    <p className="text-[9px] text-[var(--text-3)]">
+                      Lv {p.level} · {p.experience.toLocaleString()} XP
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex-shrink-0 text-right">
-                <p className="font-display text-[13px] font-bold tabular-nums text-[var(--gold-hi)]">
-                  {p.score.toLocaleString()}
-                </p>
-                <p className="text-[9px] text-[var(--text-3)]">{p.wins}W</p>
-              </div>
-            </div>
-          )
-        })}
+              )
+            })
+        )}
       </div>
-
-      <BottomNav />
     </div>
   )
 }

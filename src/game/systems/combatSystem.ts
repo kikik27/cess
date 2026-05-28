@@ -9,23 +9,27 @@ import {
   ENEMY_STAR2_PROB,
   STAR2_MULTIPLIER,
   WIN_GOLD_BONUS,
+  STAGE_INCOME,
+  LOSS_GOLD_REWARD,
+  MAX_BOARD_SLOTS,
 } from '../constants'
 
 // ─── Enemy generation ─────────────────────────────────────────────────────────
 
 export function generateEnemyPreview(round: number, maxBoardSlots: number): EnemyPreview[] {
-  const maxEnemy = Math.min(maxBoardSlots + 2, 12)
-  const count = Math.min(2 + round, maxEnemy)
-  const tier = Math.min(Math.floor(round / 2), 2)
+  const count = getEnemyCount(maxBoardSlots)
+  const tier = getEnemyTier(round)
+  const stageScale = getStageStatScale(round)
   const pool = UNIT_DEFS.filter(u => u.cost <= 1 + tier)
   const previews: EnemyPreview[] = []
   for (let i = 0; i < count; i++) {
     const def = pool[i % pool.length]
-    const stars: 1 | 2 = round >= 4 && i % 3 === 0 ? 2 : 1
-    const m = stars === 2 ? STAR2_MULTIPLIER : 1
+    const stars: 1 | 2 | 3 = getEnemyStars(round, i)
+    const starScale = stars === 3 ? 2.6 : stars === 2 ? STAR2_MULTIPLIER : 1
+    const m = starScale * stageScale
     previews.push({
       id: def.id, name: def.name, stars,
-      atk: Math.round(def.atk * m), hp: Math.round(def.hp * m), spd: def.spd,
+      atk: Math.round(def.atk * m), hp: Math.round(def.hp * m), spd: Number((def.spd * Math.min(1.35, 1 + round * 0.015)).toFixed(2)),
       avatarIndex: def.avatarIndex, traitLabel: def.traitLabel,
     })
   }
@@ -36,22 +40,76 @@ export function generateEnemies(board: BoardGrid, round: number, maxBoardSlots: 
   const b: BoardGrid = board.map(row => [...row])
   for (let r = 0; r < 4; r++) for (let c = 0; c < COLS; c++) b[r][c] = null
 
-  const maxEnemy = Math.min(maxBoardSlots + 2, 12)
-  const count = Math.min(2 + round, maxEnemy)
-  const tier = Math.min(Math.floor(round / 2), 2)
+  const count = getEnemyCount(maxBoardSlots)
+  const tier = getEnemyTier(round)
   const pool = UNIT_DEFS.filter(u => u.cost <= 1 + tier)
+  const cells = shuffleEnemyCells()
 
   for (let i = 0; i < count; i++) {
     const def = pool[Math.floor(Math.random() * pool.length)]
-    const stars: 1 | 2 = round >= 4 && Math.random() < ENEMY_STAR2_PROB ? 2 : 1
-    let placed = false
-    for (let attempt = 0; attempt < 20 && !placed; attempt++) {
-      const r = 1 + Math.floor(Math.random() * 3)   // rows 1–3 (row 0 = building)
-      const c = Math.floor(Math.random() * COLS)
-      if (!b[r][c]) { b[r][c] = makeUnit(def, stars, true); placed = true }
-    }
+    const stars = rollEnemyStars(round)
+    const enemy = scaleEnemyUnit(makeUnit(def, stars, true), round)
+    const cell = cells[i]
+    if (cell) b[cell[0]][cell[1]] = enemy
   }
   return b
+}
+
+function shuffleEnemyCells(): Array<[number, number]> {
+  const cells: Array<[number, number]> = []
+  for (let r = 1; r < 4; r++) {
+    for (let c = 0; c < COLS; c++) cells.push([r, c])
+  }
+
+  for (let i = cells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = cells[i]
+    cells[i] = cells[j]
+    cells[j] = tmp
+  }
+
+  return cells
+}
+
+function getEnemyCount(maxBoardSlots: number): number {
+  return Math.max(1, Math.min(MAX_BOARD_SLOTS, Math.floor(maxBoardSlots)))
+}
+
+function getEnemyTier(stage: number): number {
+  return Math.min(Math.floor((stage - 1) / 4), 2)
+}
+
+function getStageStatScale(stage: number): number {
+  const safeStage = Math.max(1, stage)
+  const linear = (safeStage - 1) * 0.08
+  const breakpointBonus = Math.floor((safeStage - 1) / 5) * 0.08
+  return 1 + linear + breakpointBonus
+}
+
+function getEnemyStars(stage: number, index: number): 1 | 2 | 3 {
+  if (stage >= 16 && index % 4 === 0) return 3
+  if (stage >= 6 && index % 3 === 0) return 2
+  return 1
+}
+
+function rollEnemyStars(stage: number): 1 | 2 | 3 {
+  if (stage >= 16 && Math.random() < Math.min(0.24, 0.06 + stage * 0.006)) return 3
+  if (stage >= 6 && Math.random() < Math.min(0.55, ENEMY_STAR2_PROB + stage * 0.012)) return 2
+  return 1
+}
+
+function scaleEnemyUnit(unit: Unit, stage: number): Unit {
+  const statScale = getStageStatScale(stage)
+  const speedScale = Math.min(1.3, 1 + Math.max(0, stage - 1) * 0.012)
+  const maxHp = Math.round(unit.maxHp * statScale)
+
+  return {
+    ...unit,
+    maxHp,
+    curHp: maxHp,
+    atkVal: Math.round(unit.atkVal * statScale),
+    spd: Number((unit.spd * speedScale).toFixed(2)),
+  }
 }
 
 // ─── Range helpers ────────────────────────────────────────────────────────────
@@ -277,8 +335,8 @@ export function evaluateBattleEnd(board: BoardGrid, round: number): BattleEndRes
   const win = enemiesAlive.length === 0
   return {
     win,
-    goldEarned:   win ? WIN_GOLD_BONUS + round : 0,
-    hpLost:       win ? 0 : 10 + enemiesAlive.length * 6,
+    goldEarned:   win ? STAGE_INCOME + WIN_GOLD_BONUS + Math.floor(round / 4) : LOSS_GOLD_REWARD,
+    hpLost:       win ? 0 : Math.min(36, 6 + Math.floor(round * 1.25) + enemiesAlive.length * 3),
     slotsGained:  win ? 1 : 0,
     aliveCount:   alliesAlive.length,
     enemiesAlive: enemiesAlive.length,
